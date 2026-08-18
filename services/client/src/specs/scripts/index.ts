@@ -15,10 +15,26 @@
 //   2. Copy the same JSON to services/client/src/specs/scripts/<kebab-case-name>.json
 //   3. Add an import and entry below so the script appears in the dropdown
 
+import moveForward from "./move-forward.json";
+import moveBackward from "./move-backward.json";
+import turnLeft from "./turn-left.json";
+import turnRight from "./turn-right.json";
+import threePointTurn from "./three-point-turn.json";
+import figure8 from "./figure-8.json";
+import donut from "./donut.json";
+
 export interface ScriptEntry {
   name: string;
   description: string;
   steps: Array<{ command: string; durationMs: number }>;
 }
 
-export const scripts: ScriptEntry[] = [];
+export const scripts: ScriptEntry[] = [
+  moveForward as ScriptEntry,
+  moveBackward as ScriptEntry,
+  turnLeft as ScriptEntry,
+  turnRight as ScriptEntry,
+  threePointTurn as ScriptEntry,
+  figure8 as ScriptEntry,
+  donut as ScriptEntry,
+];

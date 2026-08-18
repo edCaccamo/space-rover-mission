@@ -7,7 +7,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CommandScript } from "hooks/usePromptControls";
 import { scripts } from "../specs/scripts/index";
 
@@ -15,6 +15,7 @@ import { scripts } from "../specs/scripts/index";
 const EXECUTE_BUTTON_LABEL = "Execute";
 const CANCEL_BUTTON_LABEL = "Stop";
 const STATUS_EXECUTING = "Executing rover script...";
+const STATUS_COMPLETED = "Rover script completed.";
 const STATUS_CANCELLED = "Rover script cancelled.";
 const WARNING_BOUNDARY =
   "Warning: this script may take the rover near the boundary.";
@@ -35,6 +36,16 @@ const PromptInput = ({
 }: Props) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
+  const [wasExecuting, setWasExecuting] = useState(false);
+
+  useEffect(() => {
+    if (isExecuting) {
+      setWasExecuting(true);
+    } else if (wasExecuting) {
+      setWasExecuting(false);
+      setStatus(STATUS_COMPLETED);
+    }
+  }, [isExecuting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleExecute = () => {
     if (isExecuting || scripts.length === 0) {

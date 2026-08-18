@@ -4,11 +4,6 @@ services:
         build: ./game
         ports:
             - "9070:9080"
-        environment:
-            - IO_OPENLIBERTY_SPACEROVER_IP=mockrover
-            - IO_OPENLIBERTY_SPACEROVER_PORT=5045
-            - IO_OPENLIBERTY_GAMEBOARD_IP=mockboard
-            - IO_OPENLIBERTY_GAMEBOARD_PORT=5045
     client:
         build:
             context: ./client

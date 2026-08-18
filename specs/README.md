@@ -1,82 +1,176 @@
 # Specs
 
-This folder stores the Markdown specifications that drive rover feature implementation.
+This folder stores the Markdown specifications and rover scripts that drive the Space Rover Mission Free Roam mode.
 
-## Workflow
+---
 
-1. A user describes the rover behaviour they want in Bob.
-2. Bob fills out [`TEMPLATE.md`](specs/TEMPLATE.md) with the requested behaviour details.
-3. Bob reads the completed spec file from `specs/`.
-4. Bob injects the matching code into the Java game service and the React client.
+## How It Works — The Full Picture
 
-The spec is the single source of truth for:
-- game mode metadata
-- move vocabulary
-- calibration constants
-- LLM prompt rules
-- safety limits
-- UI labels
-- whether a physical board is required
+```
+You describe a trick in Bob IDE
+        ↓
+Bob reads specs/free-roam-spec.md (move vocabulary + calibration constants)
+        ↓
+Bob writes a CommandScript JSON to specs/scripts/ and services/client/src/specs/scripts/
+        ↓
+Rebuild the client — the script appears in the dropdown in the browser
+        ↓
+User selects the script, hits Execute
+        ↓
+Browser sends F/B/L/R/S commands over WebSocket → Game Service → Rover
+```
 
-## How to use
+---
 
-1. Copy [`TEMPLATE.md`](specs/TEMPLATE.md) to a new spec file in this folder.
-2. Ask Bob to fill in the template based on the rover behaviour you want.
-3. Review the completed spec and confirm the values.
-4. Ask Bob to read that spec and apply the implementation changes.
+## Step 1 — Describe a Trick to Bob
 
-## Included example
+Open Bob IDE and describe what you want the rover to do in plain English. For example:
 
-[`free-roam-spec.md`](specs/free-roam-spec.md) is a complete example for the Free Roam feature. It shows the format Bob should produce before generating code changes in the backend and frontend.
+> _"Do a donut, then move forward for 3 seconds, then do a 180 turn"_
 
-## Running Without Hardware
+Bob will activate the `rover-spec` skill automatically, then:
+1. Read `specs/free-roam-spec.md` to understand the allowed moves and calibration constants
+2. Translate your description into a valid `CommandScript` JSON using the timing math:
+   - Forward/backward: `durationMs = distance_cm × 18`
+   - Turn by degrees: `durationMs = degrees × 8`
+   - Spin for time: use the requested duration directly
+3. Write the script to `specs/scripts/<name>.json`
+4. Copy the same file to `services/client/src/specs/scripts/<name>.json`
+5. Add the import and entry to `services/client/src/specs/scripts/index.ts`
 
-You can run the full stack without a physical rover or game board using the built-in mock services.
+**Example — "Do a donut, move forward 3 seconds, then do a 180 turn":**
 
-**Step 1 — Start all services:**
+```json
+{
+  "name": "Donut Forward 180",
+  "description": "Spin left 3 full rotations, drive forward 3 seconds, then pivot 180 degrees.",
+  "steps": [
+    { "command": "L", "durationMs": 8640 },
+    { "command": "S", "durationMs": 0 },
+    { "command": "F", "durationMs": 3000 },
+    { "command": "S", "durationMs": 0 },
+    { "command": "R", "durationMs": 1440 },
+    { "command": "S", "durationMs": 0 }
+  ]
+}
+```
+
+---
+
+## Step 2 — Run the Stack
+
+### Without hardware (mock mode)
+
 ```bash
 cd services
 docker compose -f docker-compose-test.yml up
 ```
-This starts the client, game service, leaderboard, MongoDB, Prometheus, Grafana, and two mock containers (`mockrover` and `mockboard`) that simulate the physical hardware. The game service automatically points at the mock services — no config editing needed.
 
-**Step 2 — Open the browser:**
+This starts 4 containers:
+| Container | Role |
+|---|---|
+| `client` | Browser UI at http://localhost:3000 |
+| `gameservice` | WebSocket hub — routes commands between browser and rover |
+| `mockrover` | Simulates the rover — logs every command it receives |
+| `mockboard` | Simulates the game board — handles startup ACK only |
 
-Go to [http://localhost:3000](http://localhost:3000)
+### With real hardware
 
-**Step 3 — Start a Free Roam session:**
+1. Open `services/game/src/main/webapp/META-INF/microprofile-config.properties`
+2. Comment out the mock section and uncomment the physical hardware section with your rover's IP
+3. Make sure the rover and game board are powered on and connected to the local Wi-Fi network
+4. Run:
+```bash
+cd services
+docker compose up
+```
 
-1. Enter a player name
-2. Select **Free Roam** from the game mode dropdown
-3. Hit **Start**
+---
 
-**Step 4 — Execute a script:**
+## Step 3 — Rebuild the Client
 
-The in-game screen shows a **Select a rover script** dropdown.
-Pick a script and hit **Execute**. The `usePromptControls` hook replays the
-`F/B/L/R/S` commands over the WebSocket with correct timing.
+After Bob writes a new script, the client needs to be rebuilt so it picks up the new file:
 
-**Step 5 — Watch the mock rover receive commands:**
+```bash
+cd services
+docker compose -f docker-compose-test.yml build client
+docker compose -f docker-compose-test.yml up
+```
+
+Or if the stack is already running, restart just the client:
+
+```bash
+docker compose -f docker-compose-test.yml up --build client
+```
+
+---
+
+## Step 4 — Execute in the Browser
+
+1. Go to **http://localhost:3000**
+2. Enter a player name
+3. The game mode is **Free Roam** (the only mode)
+4. Hit **Start Mission**
+5. The in-game screen shows:
+   - A **script dropdown** listing all available scripts
+   - The selected script's **description** below the dropdown
+   - An **Execute** button — sends the script to the rover
+   - A **Stop** button — immediately halts the rover mid-script
+6. Pick your script, hit **Execute**, watch the rover go
+
+---
+
+## Step 5 — Verify on Mock Rover
+
+While running in mock mode, watch the commands arrive in real time:
+
 ```bash
 docker logs -f services-mockrover-1
 ```
-You will see each command logged as it arrives, for example:
+
+For the donut + forward + 180 example you would see:
 ```
-Message Received: L
-Message Received: S
+Message Received: L    ← donut spinning
+Message Received: S    ← stop
+Message Received: F    ← moving forward
+Message Received: S    ← stop
+Message Received: R    ← 180 pivot
+Message Received: S    ← stop
 ```
 
-## Authoring New Scripts with Bob
+---
 
-To add a new rover script:
+## Existing Scripts
 
-1. Open Bob and describe the rover behaviour you want — for example:
-   _"drive forward 50 cm, turn right 90 degrees, then do a figure 8"_
-2. Bob activates the `rover-spec` skill, reads `specs/free-roam-spec.md` for the
-   move vocabulary and calibration constants, then writes:
-   - `specs/scripts/<name>.json` — the canonical script file
-   - `services/client/src/specs/scripts/<name>.json` — the client-side copy
-   - Adds an import + entry to `services/client/src/specs/scripts/index.ts`
-3. Rebuild the client (`docker compose build client`) — the new script appears
-   in the Free Roam dropdown immediately.
+| File | Trick | What it does |
+|---|---|---|
+| `move-forward.json` | Move Forward | Drive straight forward ~100 cm |
+| `move-backward.json` | Move Backward | Drive straight backward ~100 cm |
+| `turn-left.json` | Turn Left | Forward → pivot left 90° → forward |
+| `turn-right.json` | Turn Right | Forward → pivot right 90° → forward |
+| `three-point-turn.json` | Three Point Turn | Forward → pivot 180° → reverse |
+| `figure-8.json` | Figure 8 | Full left circle → full right circle |
+| `donut.json` | Donut | Spin left 3 full rotations |
 
+Use these as reference when asking Bob to build new tricks — Bob can combine and chain them.
+
+---
+
+## Calibration Reference
+
+From `specs/free-roam-spec.md`:
+
+| Constant | Value | Example |
+|---|---|---|
+| `ms_per_cm` | 18 | 50 cm forward = 900 ms |
+| `ms_per_degree` | 8 | 90° turn = 720 ms · 180° = 1440 ms · 360° = 2880 ms |
+| `max_step_duration_ms` | 10000 | No single step longer than 10 s |
+| `max_duration_ms` | 30000 | Total script no longer than 30 s |
+
+---
+
+## Included Spec Files
+
+- [`free-roam-spec.md`](free-roam-spec.md) — the full feature spec Bob reads to author scripts
+- [`TEMPLATE.md`](TEMPLATE.md) — blank template for authoring new feature specs
+- [`scripts/`](scripts/) — Bob-authored CommandScript JSON files

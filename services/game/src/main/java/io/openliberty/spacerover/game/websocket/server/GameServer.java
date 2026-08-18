@@ -125,7 +125,6 @@ public class GameServer implements GameEventListener, io.openliberty.spacerover.
 		int gameMode = Integer.parseInt(properties[1]);
 		LOGGER.log(Level.INFO, "Start Game received for player ID: {0}, GameMode: {1}",
 				new Object[] { playerId, gameMode });
-		this.stateMachine.setFreeRoamMode(properties[1].equals(Constants.INIT_GAME_FREE_ROAM));
 		if (gameMode == Integer.parseInt(Constants.INIT_GAME_FREE_ROAM)) {
 			this.currentGame = new Game();
 			registerGameEventManager();
@@ -265,19 +264,6 @@ public class GameServer implements GameEventListener, io.openliberty.spacerover.
 		}
 	}
 
-	private void connectBoard() {
-		disconnectBoard();
-		String boardConnectionString = WEBSOCKET_PROTOCOL + gameboardIP + COLON + gameboardPort;
-		this.stateMachine.attachGameBoard();
-		this.boardClient = new WebsocketClientEndpoint(this, boardConnectionString, Constants.BOARD_SOCKET_NAME);
-		try {
-			this.boardClient.connect();
-		} catch (IOException e) {
-			LOGGER.log(Level.SEVERE, "Failed to connect to board", e);
-			this.setErrorStateAndSendError("Failed to connect to board.");
-		}
-	}
-
 	private void connectRover() {
 		disconnectRover();
 		String roverConnectionString = WEBSOCKET_PROTOCOL + roverIP + COLON + roverPort;
@@ -288,6 +274,19 @@ public class GameServer implements GameEventListener, io.openliberty.spacerover.
 		} catch (IOException e) {
 			LOGGER.log(Level.SEVERE, "Failed to connect to rover", e);
 			this.setErrorStateAndSendError("Failed to connect to rover.");
+		}
+	}
+
+	private void connectBoard() {
+		disconnectBoard();
+		String boardConnectionString = WEBSOCKET_PROTOCOL + gameboardIP + COLON + gameboardPort;
+		this.stateMachine.attachGameBoard();
+		this.boardClient = new WebsocketClientEndpoint(this, boardConnectionString, Constants.BOARD_SOCKET_NAME);
+		try {
+			this.boardClient.connect();
+		} catch (IOException e) {
+			LOGGER.log(Level.SEVERE, "Failed to connect to board", e);
+			this.setErrorStateAndSendError("Failed to connect to board.");
 		}
 	}
 

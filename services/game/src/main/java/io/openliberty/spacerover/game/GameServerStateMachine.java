@@ -18,8 +18,6 @@ import java.util.logging.Logger;
 public class GameServerStateMachine {
 	private static final Logger LOGGER = Logger.getLogger(GameServerStateMachine.class.getName());
 	GameServerState currentState;
-	private boolean isFreeRoamMode = false;
-
 	public GameServerStateMachine() {
 		this(GameServerState.SERVER_STARTED);
 	}
@@ -139,26 +137,12 @@ public class GameServerStateMachine {
 	}
 
 	public boolean isAllConnected() {
-		if (isFreeRoamMode) {
-			return this.currentState == GameServerState.ALL_CONNECTED
-					|| this.currentState == GameServerState.ROVER_CONNECTED;
-		}
-		return this.currentState == GameServerState.ALL_CONNECTED;
+		return this.currentState == GameServerState.ALL_CONNECTED
+				|| this.currentState == GameServerState.ROVER_CONNECTED;
 	}
 
 	public boolean isReadyToConnectBoard() {
-		if (isFreeRoamMode) {
-			return false;
-		}
 		return this.currentState == GameServerState.ROVER_CONNECTED;
-	}
-
-	public void setFreeRoamMode(boolean freeRoamMode) {
-		this.isFreeRoamMode = freeRoamMode;
-	}
-
-	public boolean isFreeRoamMode() {
-		return isFreeRoamMode;
 	}
 
 	public boolean isReadyToConnectRover() {
