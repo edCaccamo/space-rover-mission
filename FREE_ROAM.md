@@ -114,20 +114,34 @@ These scripts are already included in the repo:
 
 Use this when you want to interactively pick and run scripts from the web interface.
 
-#### Start the stack
+#### 1. Switch Mac Wi-Fi to OL_DEMO
+
+The rover is only reachable on the OL_DEMO network. Switch manually via the macOS Wi-Fi menu bar before starting the stack.
+
+#### 2. Start the stack
 
 ```bash
-# Switch Mac Wi-Fi to OL_DEMO first, then:
 docker compose -f services/docker-compose.yml up -d
 ```
 
-#### Open the browser
+#### 3. Open the browser
 
-Go to **http://localhost:3000**, enter a player name, and hit **Start Mission**. The game mode is automatically set to **Free Roam**.
+Go to **http://localhost:3000**.
 
-#### Execute a script
+#### 4. Enter your name and select Free Roam
 
-The in-game screen shows a script dropdown. Select a script, read its description, and hit **Execute**. Hit **Stop** at any time to immediately halt the rover.
+- Enter your player name in the text field
+- Select **Free Roam** from the game mode dropdown
+- Hit **Begin mission**
+
+#### 5. Execute a script
+
+The in-game screen shows:
+- A **script dropdown** — all pre-authored scripts listed by name
+- The selected script's **description** below the dropdown
+- An **Execute** button — sends the script to the rover (shows _"Executing rover script..."_ while running, _"Rover script completed."_ when done)
+- A **Stop** button — immediately halts the rover mid-script
+- An **End mission** button — exits back to the home screen
 
 ---
 
