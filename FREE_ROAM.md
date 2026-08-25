@@ -45,42 +45,55 @@ The spec is the source of truth. Changing a calibration constant in the spec cha
 
 ---
 
-## Running Free Roam — two modes
+## Initial setup
 
-### Mode A: Browser UI (mock or real hardware)
+### 1. Clone the repository
 
-Use this when you want to interactively pick and run scripts from the web interface.
-
-#### Step 1 — Build and start the stack
-
-**Without hardware (mock rover):**
 ```bash
-docker compose -f services/docker-compose-test.yml up --build
+git clone https://github.com/OpenLiberty/space-rover-mission.git
+cd space-rover-mission
 ```
 
-This starts four containers:
+### 2. Open the repo in Bob IDE
 
-| Container | Role |
-|---|---|
-| `client` | Browser UI at http://localhost:3000 |
-| `gameservice` | WebSocket hub — routes commands between browser and rover |
-| `mockrover` | Simulates the rover — logs every command it receives |
-| `mockboard` | Simulates the game board startup handshake |
+Open the `space-rover-mission` folder in Bob. Bob will automatically detect the workspace and load the rover-spec skill from `.bob/skills/rover-spec/SKILL.md`.
 
-**With real hardware (rover on OL_DEMO network):**
+### 3. Build the Docker images (requires internet)
+
+Do this once on IBM Wi-Fi or any internet connection. You only need to repeat this if the code changes.
+
 ```bash
-docker compose -f services/docker-compose.yml build   # once, on internet
-# — switch Mac Wi-Fi to OL_DEMO —
-docker compose -f services/docker-compose.yml up -d
+docker compose -f services/docker-compose.yml build
 ```
 
-#### Step 2 — Open the browser
+---
 
-Go to **http://localhost:3000**, enter a player name, and hit **Start Mission**. The game mode is automatically set to **Free Roam**.
+## Authoring a new script with Bob
 
-#### Step 3 — Pick a script and execute
+With the repo open in Bob IDE, describe the rover behaviour you want in plain English. Bob will read [`specs/free-roam-spec.md`](specs/free-roam-spec.md) and write the JSON for you.
 
-The in-game screen shows a script dropdown. Select any of the pre-authored scripts, read the description, and hit **Execute**. Hit **Stop** at any time to immediately halt the rover.
+Examples:
+- _"Go forward and then do a circle"_
+- _"Do a figure 8"_
+- _"Spin right for 3 seconds then reverse"_
+- _"Do a three point turn"_
+
+Bob will:
+1. Translate your description into a valid `CommandScript` JSON using the calibration constants
+2. Write the file to `specs/scripts/<name>.json`
+3. Copy it to `services/client/src/specs/scripts/<name>.json`
+4. Register it in `services/client/src/specs/scripts/index.ts` so it appears in the browser dropdown
+
+After Bob writes a new script, rebuild the client to pick it up:
+```bash
+docker compose -f services/docker-compose.yml build client
+```
+
+See [`specs/scripts/README.md`](specs/scripts/README.md) for the full JSON schema and calibration reference.
+
+### Pre-authored scripts
+
+These scripts are already included in the repo:
 
 | Script | What it does |
 |---|---|
@@ -93,12 +106,28 @@ The in-game screen shows a script dropdown. Select any of the pre-authored scrip
 | Donut | Spin left 3 full rotations |
 | Forward Then Circle | Drive forward ~100 cm → spin one full rotation |
 
-#### Step 4 — Verify commands (mock mode)
+---
 
-Watch the commands arrive on the mock rover in real time:
+## Running Free Roam
+
+### Mode A: Browser UI
+
+Use this when you want to interactively pick and run scripts from the web interface.
+
+#### Start the stack
+
 ```bash
-docker logs -f services-mockrover-1
+# Switch Mac Wi-Fi to OL_DEMO first, then:
+docker compose -f services/docker-compose.yml up -d
 ```
+
+#### Open the browser
+
+Go to **http://localhost:3000**, enter a player name, and hit **Start Mission**. The game mode is automatically set to **Free Roam**.
+
+#### Execute a script
+
+The in-game screen shows a script dropdown. Select a script, read its description, and hit **Execute**. Hit **Stop** at any time to immediately halt the rover.
 
 ---
 
@@ -106,18 +135,8 @@ docker logs -f services-mockrover-1
 
 Use this to run the **Forward Then Circle** trick on the physical rover end-to-end from a single command, with no browser interaction.
 
-#### Pre-requisite — build images once (requires internet)
+#### Switch Mac Wi-Fi to OL_DEMO, then run:
 
-Do this on IBM Wi-Fi or any internet connection. You only need to repeat this if the code changes.
-
-```bash
-docker compose -f services/docker-compose.yml build
-```
-
-#### Running the trick
-
-1. Switch your Mac Wi-Fi to **OL_DEMO** (the rover's private network)
-2. Run:
 ```bash
 ./run-trick.sh
 ```
@@ -129,7 +148,7 @@ The script does the following automatically:
 | **1** | Starts the containers from the local Docker cache — no internet required |
 | **2** | Spins with a live indicator, polling ping and WebSocket until the rover responds |
 | **3** | Pings the rover from inside the client container to confirm network reachability |
-| **4** | Probes the rover WebSocket from inside the game service container — confirms `101 Switching Protocols` |
+| **4** | Probes the rover WebSocket — confirms `101 Switching Protocols` |
 | **5** | Sends the Forward Then Circle script over the game service WebSocket with live countdown output |
 
 Example terminal output:
@@ -167,34 +186,48 @@ Example terminal output:
 
 ---
 
-## Authoring a new script with Bob
-
-Open Bob IDE and describe the rover behaviour you want in plain English. Bob will read the spec and write the JSON for you.
-
-Examples:
-- _"Go forward and then do a circle"_
-- _"Do a figure 8"_
-- _"Spin right for 3 seconds then reverse"_
-
-Bob will:
-1. Translate your description into a valid `CommandScript` JSON using the calibration constants
-2. Write the file to `specs/scripts/<name>.json`
-3. Copy it to `services/client/src/specs/scripts/<name>.json`
-4. Register it in `services/client/src/specs/scripts/index.ts` so it appears in the browser dropdown
-
-Rebuild the client to pick up the new script:
-```bash
-docker compose -f services/docker-compose.yml build client
-```
-
-See [`specs/scripts/README.md`](specs/scripts/README.md) for the full JSON schema and calibration reference.
-
----
-
 ## Stopping the stack
 
 ```bash
 docker compose -f services/docker-compose.yml down
-# or for mock mode:
-docker compose -f services/docker-compose-test.yml down
 ```
+
+---
+
+## Troubleshooting
+
+### Mock mode (no physical rover)
+
+If you don't have hardware available, you can run the full stack with a simulated rover to verify the UI and script execution end-to-end:
+
+```bash
+docker compose -f services/docker-compose-test.yml up --build
+```
+
+This swaps in a `mockrover` container that logs every command it receives instead of driving real hardware. Watch commands arrive in real time:
+
+```bash
+docker logs -f services-mockrover-1
+```
+
+For a Forward Then Circle script you would see:
+```
+Message Received: F
+Message Received: S
+Message Received: L
+Message Received: S
+```
+
+Use mock mode to confirm your script logic is correct before running on the physical rover.
+
+---
+
+## Known limitations
+
+- **Rover movements are approximate.** The calibration constants (`18 ms/cm`, `8 ms/degree`) are tuned to the specific rover hardware and surface. On different floors or battery levels the rover may overshoot or undershoot. If a turn or distance is off, ask Bob to adjust the `durationMs` values and re-run.
+
+- **Circle and turning angles may not be exact.** A 360° circle requires the spin timing to be dialled in per-rover. The current values are tuned empirically — if the rover doesn't complete a full rotation, increase the `L`/`R` `durationMs` on the relevant script step.
+
+- **Switching to OL_DEMO via the script is unreliable.** macOS `networksetup -setairportnetwork` does not always join the network successfully, especially if the SSID is not currently broadcasting or the password is cached differently. It is more reliable to switch Wi-Fi to `OL_DEMO` manually in the macOS menu bar before running `run-trick.sh`.
+
+- **The game service will hang if started before switching to OL_DEMO.** The game service connects to the rover at `192.168.0.115` on startup. If you are still on IBM Wi-Fi when `docker compose up` runs, the service will wait indefinitely for the rover connection. Always switch to OL_DEMO first.
