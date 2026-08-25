@@ -46,3 +46,31 @@ Bob will:
 5. Add an import and entry to `services/client/src/specs/scripts/index.ts` so the script appears in the Free Roam dropdown
 
 Scripts folder starts empty — Bob authors scripts here as users describe what they want the rover to do.
+
+## Running a Script on the Physical Rover
+
+Use `run-trick.sh` (in the repo root) to execute the **Forward Then Circle** trick on the real rover automatically.
+
+### Step 1 — One-time build (do this on IBM Wi-Fi or any internet connection)
+
+```bash
+docker compose -f services/docker-compose.yml build
+```
+
+Builds and caches all Docker images locally. Only needed again if the code changes.
+
+### Step 2 — Switch your Mac Wi-Fi to `OL_DEMO`
+
+Do this manually before running the script. The game service connects directly to the rover at `192.168.0.115` — that IP is only reachable on OL_DEMO. If you run the script while still on IBM Wi-Fi the game service will hang waiting for the rover.
+
+### Step 3 — Run the trick
+
+```bash
+./run-trick.sh
+```
+
+The script will:
+1. Start the containers from the local cache (no internet required)
+2. Wait for the game service to be ready (Liberty `CWWKF0011I`)
+3. Ping the rover and probe its WebSocket
+4. Execute the Forward Then Circle script over the game service WebSocket

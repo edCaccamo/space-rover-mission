@@ -22,6 +22,7 @@ import turnRight from "./turn-right.json";
 import threePointTurn from "./three-point-turn.json";
 import figure8 from "./figure-8.json";
 import donut from "./donut.json";
+import forwardThenCircle from "./forward-then-circle.json";
 
 export interface ScriptEntry {
   name: string;
@@ -37,4 +38,5 @@ export const scripts: ScriptEntry[] = [
   threePointTurn as ScriptEntry,
   figure8 as ScriptEntry,
   donut as ScriptEntry,
+  forwardThenCircle as ScriptEntry,
 ];
