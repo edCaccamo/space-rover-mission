@@ -36,7 +36,28 @@ The allowed commands are:
 - `R` — spin right (rotate right in place)
 - `S` — stop (always use `durationMs: 0`)
 
-Always end the steps array with `{ "command": "S", "durationMs": 0 }`.
+**Stop rule:** A `{ "command": "S", "durationMs": 0 }` step MUST appear:
+- Between every two consecutive motion commands (`F`, `B`, `L`, `R`)
+- At the very end of every script
+
+The firmware keeps driving until it receives `S`. Without a stop between
+commands the rover will not change direction cleanly — it will blend from
+one motion into the next. Every transition must be: `<motion> → S → <motion>`.
+
+Example of correct sequencing:
+```json
+{ "command": "F", "durationMs": 1800 },
+{ "command": "S", "durationMs": 0 },
+{ "command": "R", "durationMs": 720 },
+{ "command": "S", "durationMs": 0 }
+```
+
+Example of INCORRECT sequencing (never do this):
+```json
+{ "command": "F", "durationMs": 1800 },
+{ "command": "R", "durationMs": 720 },
+{ "command": "S", "durationMs": 0 }
+```
 
 ## Step 3 — Translate the user's description
 
