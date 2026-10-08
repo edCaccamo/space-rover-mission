@@ -8,7 +8,7 @@
 #   browser-based SSO. Set BOB_API_KEY in docker-compose.yml or a .env file.
 #   Generate your key at https://bob.ibm.com (API Keys section).
 
-FROM registry.redhat.io/ubi9/nodejs-20-minimal:latest
+FROM node:20-alpine
 
 USER root
 
