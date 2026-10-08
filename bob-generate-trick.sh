@@ -33,6 +33,22 @@ BROWSER_URL="http://localhost:3000"
 # Optional: name of the Wi-Fi interface. Auto-detected if blank.
 WIFI_IFACE=""
 
+# ─── Load BOB_API_KEY from services/.env if not already set ───────────────────
+# Each user maintains their own services/.env (gitignored).
+# Copy services/.env.example → services/.env and fill in your key.
+ENV_FILE="$(dirname "$0")/services/.env"
+if [ -z "${BOB_API_KEY:-}" ] && [ -f "$ENV_FILE" ]; then
+  # shellcheck source=/dev/null
+  set -a; source "$ENV_FILE"; set +a
+fi
+if [ -z "${BOB_API_KEY:-}" ]; then
+  echo "  ✗ BOB_API_KEY is not set."
+  echo "    Copy services/.env.example → services/.env and add your key."
+  echo "    Get a key at https://bob.ibm.com (API Keys section)."
+  exit 1
+fi
+export BOB_API_KEY
+
 # ─── Colours ──────────────────────────────────────────────────────────────────
 COL_RESET="\033[0m"
 COL_GREEN="\033[0;32m"
