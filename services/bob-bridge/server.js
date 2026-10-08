@@ -1,36 +1,34 @@
 /**
  * bob-bridge/server.js
  *
- * Minimal Express sidecar that accepts a plain-English trick description,
- * shells out to the Bob CLI with the rover-spec rules loaded, and returns
- * the generated CommandScript JSON so the browser UI can execute it
- * immediately — no Docker rebuild required.
+ * Lightweight relay. Accepts a plain-English trick description from the
+ * browser, forwards it to bob-host-agent.sh on the Ubuntu host via a Unix
+ * socket, and returns the generated CommandScript JSON.
+ *
+ * The host agent handles Bob Shell and docker-compose — this container
+ * just does the HTTP ↔ socket translation.
  *
  * POST /generate
- *   Body: { "prompt": "do a figure 8" }
+ *   Body:    { "prompt": "do a figure 8" }
  *   Returns: CommandScript JSON  { name, description, steps: [...] }
  *            or  { error: "..." }  with HTTP 4xx/5xx
  *
- * The Bob CLI must be installed inside the container (see Dockerfile).
- * The workspace is mounted at /workspace so Bob finds .bob/rules/ and
- * specs/free-roam-spec.md.
+ * Socket path is bind-mounted from the host at /tmp/bob-host-agent.sock
+ * (see docker-compose.yml). Start bob-host-agent.sh before using Generate.
  */
 
 "use strict";
 
 const express = require("express");
 const cors = require("cors");
-const { execFile } = require("child_process");
-const path = require("path");
-const fs = require("fs");
+const net = require("net");
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
 const PORT = process.env.BOB_BRIDGE_PORT || 4000;
-const WORKSPACE = process.env.BOB_WORKSPACE || "/workspace";
-const SCRIPTS_DIR = path.join(WORKSPACE, "specs", "scripts");
+const SOCKET_PATH = process.env.HOST_AGENT_SOCKET || "/tmp/bob-host-agent.sock";
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
@@ -42,77 +40,45 @@ app.post("/generate", (req, res) => {
     return res.status(400).json({ error: "prompt is required" });
   }
 
-  // Snapshot the scripts directory before the Bob run so we can detect the
-  // new file Bob writes.
-  let beforeFiles;
-  try {
-    beforeFiles = new Set(fs.readdirSync(SCRIPTS_DIR));
-  } catch {
-    beforeFiles = new Set();
-  }
+  console.log(`[bob-bridge] Forwarding to host agent: "${prompt}"`);
 
-  // Bob Shell non-interactive: bob -p "prompt"
-  // cwd is set to WORKSPACE so Bob loads .bob/rules/ and the rover-spec skill.
-  const bobPrompt = [
-    "You are operating under the rover-spec skill.",
-    "Follow the rover-spec skill instructions exactly.",
-    "Generate a rover trick script for this description:",
-    prompt,
-  ].join(" ");
+  const safePrompt = prompt.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const request = JSON.stringify({ prompt: safePrompt }) + "\n";
 
-  const args = ["-p", bobPrompt];
+  let responseData = "";
+  let responded = false;
 
-  execFile("bob", args, { timeout: 120_000, cwd: WORKSPACE }, (err, stdout, stderr) => {
-    if (err) {
-      console.error("[bob-bridge] Bob CLI error:", stderr || err.message);
-      return res.status(500).json({
-        error: "Bob CLI failed",
-        detail: stderr || err.message,
-      });
-    }
+  const socket = net.createConnection(SOCKET_PATH, () => {
+    socket.write(request);
+  });
 
-    // Find the new JSON file Bob wrote to specs/scripts/
-    let afterFiles;
+  // Host agent may take up to 5 min (Bob Shell + docker build)
+  socket.setTimeout(300_000);
+
+  socket.on("data", (chunk) => {
+    responseData += chunk.toString();
+  });
+
+  socket.on("end", () => {
+    if (responded) return;
+    responded = true;
+
+    let parsed;
     try {
-      afterFiles = new Set(fs.readdirSync(SCRIPTS_DIR));
+      const firstLine = responseData.split("\n").find(l => l.trim().startsWith("{"));
+      parsed = JSON.parse(firstLine || responseData);
     } catch {
-      return res.status(500).json({ error: "Could not read scripts directory after generation" });
+      console.error("[bob-bridge] Invalid JSON from host agent:", responseData);
+      return res.status(500).json({ error: "Host agent returned invalid JSON" });
     }
 
-    const newFiles = [...afterFiles].filter(
-      (f) => !beforeFiles.has(f) && f.endsWith(".json")
-    );
-
-    if (newFiles.length === 0) {
-      // Bob may have updated an existing script — try to parse the script name
-      // from its stdout output (looks for "specs/scripts/<name>.json")
-      const match = stdout.match(/specs\/scripts\/([\w-]+\.json)/);
-      if (match) {
-        newFiles.push(match[1]);
-      }
+    if (!parsed.ok) {
+      console.error("[bob-bridge] Host agent error:", parsed.error);
+      return res.status(500).json({ error: parsed.error || "Host agent failed" });
     }
 
-    if (newFiles.length === 0) {
-      console.error("[bob-bridge] Bob ran but no new script file found.\n", stdout);
-      return res.status(500).json({
-        error: "Bob finished but no script file was written",
-        bobOutput: stdout,
-      });
-    }
-
-    const scriptFile = path.join(SCRIPTS_DIR, newFiles[0]);
-    let script;
-    try {
-      script = JSON.parse(fs.readFileSync(scriptFile, "utf8"));
-    } catch (parseErr) {
-      return res.status(500).json({
-        error: "Generated script is not valid JSON",
-        file: scriptFile,
-      });
-    }
-
-    // Basic schema validation
-    if (!script.name || !Array.isArray(script.steps)) {
+    const script = parsed.script;
+    if (!script || !script.name || !Array.isArray(script.steps)) {
       return res.status(500).json({
         error: "Generated script is missing required fields (name, steps)",
         script,
@@ -122,9 +88,30 @@ app.post("/generate", (req, res) => {
     console.log(`[bob-bridge] Generated "${script.name}" (${script.steps.length} steps)`);
     return res.json(script);
   });
+
+  socket.on("timeout", () => {
+    if (responded) return;
+    responded = true;
+    socket.destroy();
+    console.error("[bob-bridge] Host agent timed out");
+    res.status(504).json({ error: "Host agent timed out — Bob or docker build took too long" });
+  });
+
+  socket.on("error", (err) => {
+    if (responded) return;
+    responded = true;
+    console.error("[bob-bridge] Socket error:", err.message);
+    if (err.code === "ENOENT") {
+      res.status(503).json({
+        error: "Host agent is not running. Start it with: ./bob-host-agent.sh",
+      });
+    } else {
+      res.status(500).json({ error: `Socket error: ${err.message}` });
+    }
+  });
 });
 
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`[bob-bridge] Listening on http://127.0.0.1:${PORT}`);
-  console.log(`[bob-bridge] Workspace: ${WORKSPACE}`);
+  console.log(`[bob-bridge] Host agent socket: ${SOCKET_PATH}`);
 });
