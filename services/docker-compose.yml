@@ -25,14 +25,10 @@ services:
         ports:
             - "127.0.0.1:4000:4000"
         volumes:
-            # Mount the repo root so Bob Shell can read .bob/rules/, specs/,
-            # and write generated script JSON files directly into specs/scripts/.
-            - ..:/workspace
+            # Bind-mount the host agent Unix socket so the container can reach it.
+            # bob-host-agent.sh must be running on the host before using Generate.
+            - /tmp/bob-host-agent.sock:/tmp/bob-host-agent.sock
         environment:
             - BOB_BRIDGE_PORT=4000
-            - BOB_WORKSPACE=/workspace
-            # Bob Shell API key for non-interactive (headless) authentication.
-            # Add BOB_API_KEY=your_key_here to a .env file next to docker-compose.yml.
-            # Generate your key at https://bob.ibm.com (API Keys section).
-            - BOB_API_KEY=${BOB_API_KEY}
+            - HOST_AGENT_SOCKET=/tmp/bob-host-agent.sock
         restart: unless-stopped

@@ -27,26 +27,33 @@ set -euo pipefail
 COMPOSE_FILE="services/docker-compose.yml"
 ROVER_IP="192.168.0.115"
 ROVER_PORT="5045"
-ROVER_WIFI_PROFILE="OL_DEMO"
+ROVER_WIFI="OL_DEMO"          # fixed — the rover router SSID never changes
 BROWSER_URL="http://localhost:3000"
 
 # Optional: name of the Wi-Fi interface. Auto-detected if blank.
 WIFI_IFACE=""
 
-# ─── Load BOB_API_KEY from services/.env if not already set ───────────────────
+# ─── Load config from services/.env ───────────────────────────────────────────
 # Each user maintains their own services/.env (gitignored).
-# Copy services/.env.example → services/.env and fill in your key.
+# Copy services/.env.example → services/.env and fill in your values.
 ENV_FILE="$(dirname "$0")/services/.env"
-if [ -z "${BOB_API_KEY:-}" ] && [ -f "$ENV_FILE" ]; then
+if [ -f "$ENV_FILE" ]; then
   # shellcheck source=/dev/null
   set -a; source "$ENV_FILE"; set +a
 fi
+
 if [ -z "${BOB_API_KEY:-}" ]; then
   echo "  ✗ BOB_API_KEY is not set."
   echo "    Copy services/.env.example → services/.env and add your key."
   echo "    Get a key at https://bob.ibm.com (API Keys section)."
   exit 1
 fi
+if [ -z "${INTERNET_WIFI:-}" ]; then
+  echo "  ✗ INTERNET_WIFI is not set."
+  echo "    Add INTERNET_WIFI=<your-ssid> to services/.env"
+  exit 1
+fi
+
 export BOB_API_KEY
 
 # ─── Colours ──────────────────────────────────────────────────────────────────
@@ -131,32 +138,32 @@ ok "Client image rebuilt."
 
 # ─── Step 3: Switch Wi-Fi to OL_DEMO ─────────────────────────────────────────
 hr
-echo -e "  ${COL_BOLD}Step 3: Switching Wi-Fi to OL_DEMO${COL_RESET}"
+echo -e "  ${COL_BOLD}Step 3: Switching Wi-Fi to $ROVER_WIFI${COL_RESET}"
 hr
 echo ""
 
 IFACE="$(detect_wifi_iface)"
 if [ -z "$IFACE" ]; then
   echo "  ✗ Could not detect a Wi-Fi interface."
-  echo "    Connect to OL_DEMO manually, then re-run from Step 4:"
+  echo "    Connect to $ROVER_WIFI manually, then re-run from Step 4:"
   echo "    docker compose -f $COMPOSE_FILE up -d"
   exit 1
 fi
 
-info "Connecting $IFACE to $ROVER_WIFI_PROFILE ..."
-nmcli device wifi connect "$ROVER_WIFI_PROFILE" ifname "$IFACE" 2>/dev/null \
-  || nmcli connection up "$ROVER_WIFI_PROFILE" ifname "$IFACE"
+info "Connecting $IFACE to $ROVER_WIFI ..."
+nmcli device wifi connect "$ROVER_WIFI" ifname "$IFACE" 2>/dev/null \
+  || nmcli connection up "$ROVER_WIFI" ifname "$IFACE"
 
 # Give NetworkManager a moment to assign an IP
 sleep 3
 
 CURRENT_SSID="$(nmcli -t -f active,ssid dev wifi | awk -F: '/^yes/{print $2; exit}')"
-if [ "$CURRENT_SSID" != "$ROVER_WIFI_PROFILE" ]; then
+if [ "$CURRENT_SSID" != "$ROVER_WIFI" ]; then
   echo ""
-  echo -e "  ${COL_YELLOW}Warning:${COL_RESET} connected SSID is '${CURRENT_SSID}' — expected '${ROVER_WIFI_PROFILE}'."
+  echo -e "  ${COL_YELLOW}Warning:${COL_RESET} connected SSID is '${CURRENT_SSID}' — expected '${ROVER_WIFI}'."
   echo "  Switch manually if needed before the rover will be reachable."
 else
-  ok "Connected to $ROVER_WIFI_PROFILE."
+  ok "Connected to $ROVER_WIFI."
 fi
 
 # ─── Step 4: Start the stack ──────────────────────────────────────────────────
