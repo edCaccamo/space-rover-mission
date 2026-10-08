@@ -118,8 +118,29 @@ log "Listening on $SOCKET_PATH"
 log "Workspace: $WORKSPACE"
 log "Press Ctrl+C to stop."
 
-export -f handle_request log
-export COMPOSE_FILE WORKSPACE BOB_API_KEY
+# Write the handler + all variables into a temp script that socat executes.
+# This avoids relying on export -f (bash function export) which is unreliable
+# across socat's exec boundary.
+HANDLER_SCRIPT="$(mktemp /tmp/bob-handler-XXXXXX.sh)"
+chmod +x "$HANDLER_SCRIPT"
+
+cat > "$HANDLER_SCRIPT" << HANDLER_EOF
+#!/usr/bin/env bash
+BOB_API_KEY="$BOB_API_KEY"
+COMPOSE_FILE="$COMPOSE_FILE"
+WORKSPACE="$WORKSPACE"
+SOCKET_PATH="$SOCKET_PATH"
+export BOB_API_KEY
+
+log() { echo "[bob-host-agent] \$*" >&2; }
+
+$(declare -f handle_request)
+
+handle_request
+HANDLER_EOF
+
+# Clean up temp script on exit
+trap 'rm -f "$HANDLER_SCRIPT"; rm -f "$SOCKET_PATH"' EXIT INT TERM
 
 socat UNIX-LISTEN:"$SOCKET_PATH",fork,mode=666 \
-  EXEC:"bash -c handle_request",nofork
+  EXEC:"bash $HANDLER_SCRIPT",nofork
