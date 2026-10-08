@@ -121,5 +121,5 @@ log "Press Ctrl+C to stop."
 export -f handle_request log
 export COMPOSE_FILE WORKSPACE BOB_API_KEY
 
-socat UNIX-LISTEN:"$SOCKET_PATH",fork,mode=660 \
+socat UNIX-LISTEN:"$SOCKET_PATH",fork,mode=666 \
   EXEC:"bash -c handle_request",nofork
