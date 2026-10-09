@@ -25,10 +25,17 @@ services:
         ports:
             - "127.0.0.1:4000:4000"
         volumes:
-            # Bind-mount the host agent Unix socket so the container can reach it.
-            # bob-host-agent.sh must be running on the host before using Generate.
-            - /tmp/bob-host-agent.sock:/tmp/bob-host-agent.sock
+            # Mount the repo's specs/scripts/ directory so Bob Shell can write
+            # new scripts here and GET /scripts can read them at runtime.
+            - ../specs/scripts:/workspace/specs/scripts
+            # Mount the full repo root as /workspace so Bob loads .bob/rules/
+            # and the rover-spec skill when generating scripts.
+            - ../:/workspace
+        env_file:
+            - .env
         environment:
             - BOB_BRIDGE_PORT=4000
-            - HOST_AGENT_SOCKET=/tmp/bob-host-agent.sock
+            - SCRIPTS_DIR=/workspace/specs/scripts
+            # Bob Shell reads BOBSHELL_API_KEY for headless auth
+            - BOBSHELL_API_KEY=${BOB_API_KEY}
         restart: unless-stopped

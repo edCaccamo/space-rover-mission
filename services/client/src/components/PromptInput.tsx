@@ -9,7 +9,7 @@
  *******************************************************************************/
 import React, { useState, useEffect } from "react";
 import { CommandScript } from "hooks/usePromptControls";
-import { scripts } from "../specs/scripts/index";
+import useScripts from "hooks/useScripts";
 
 // UI label strings from specs/free-roam-spec.md
 const EXECUTE_BUTTON_LABEL = "Execute";
@@ -21,7 +21,8 @@ const WARNING_BOUNDARY =
   "Warning: this script may take the rover near the boundary.";
 
 // bob-bridge sidecar — exposed on localhost:4000 (see services/docker-compose.yml)
-const BOB_BRIDGE_URL = "http://localhost:4000/generate";
+const BOB_BRIDGE_BASE = "http://localhost:4000";
+const BOB_BRIDGE_URL = `${BOB_BRIDGE_BASE}/generate`;
 
 type Props = {
   gameSocketURL: string;
@@ -37,6 +38,7 @@ const PromptInput = ({
   executeScript,
   cancelScript,
 }: Props) => {
+  const { scripts, loading: scriptsLoading, refetch: refetchScripts } = useScripts();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   const [wasExecuting, setWasExecuting] = useState(false);
@@ -89,6 +91,7 @@ const PromptInput = ({
         setBobError(data.error || "Bob returned an error.");
       } else {
         setGeneratedScript(data);
+        refetchScripts();
       }
     } catch {
       setBobError("Could not reach the Bob bridge. Is the bob-bridge container running?");
@@ -114,15 +117,19 @@ const PromptInput = ({
         className="bg-gray-800 text-gray-100 rounded-lg p-3 w-full"
         value={selectedIndex}
         onChange={(e) => setSelectedIndex(Number(e.target.value))}
-        disabled={isExecuting}
+        disabled={isExecuting || scriptsLoading}
       >
-        {scripts.map((script, index) => (
-          <option key={index} value={index}>
-            {script.name}
-          </option>
-        ))}
+        {scriptsLoading ? (
+          <option>Loading scripts…</option>
+        ) : (
+          scripts.map((script, index) => (
+            <option key={index} value={index}>
+              {script.name}
+            </option>
+          ))
+        )}
       </select>
-      {scripts.length > 0 && (
+      {!scriptsLoading && scripts.length > 0 && (
         <p className="text-gray-500 text-sm">
           {scripts[selectedIndex].description}
         </p>
@@ -210,13 +217,22 @@ const PromptInput = ({
                   {generatedScript.steps.length} steps ·{" "}
                   {generatedScript.steps.reduce((t, s) => t + s.durationMs, 0)} ms total
                 </p>
-                <button
-                  className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg text-sm self-start"
-                  onClick={handleRunGenerated}
-                  disabled={isExecuting}
-                >
-                  Run this trick
-                </button>
+                <div className="flex flex-row gap-2">
+                  <button
+                    className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg text-sm"
+                    onClick={handleRunGenerated}
+                    disabled={isExecuting}
+                  >
+                    Run this trick
+                  </button>
+                  <button
+                    className="bg-gray-600 hover:bg-gray-500 text-white px-5 py-2 rounded-lg text-sm"
+                    onClick={() => { setGeneratedScript(null); setBobPrompt(""); }}
+                    disabled={isExecuting}
+                  >
+                    Generate another
+                  </button>
+                </div>
               </div>
             )}
           </div>

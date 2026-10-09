@@ -71,7 +71,7 @@ handle_request() {
   # ── 1. Run Bob Shell ────────────────────────────────────────────────────────
   log "Calling Bob Shell..."
   local bob_output
-  bob_output="$(cd "$WORKSPACE" && bob -p \
+  bob_output="$(cd "$WORKSPACE" && /home/space-rover/node/node-v22.23.3-linux-x64/bin/bob -p \
     "You are operating under the rover-spec skill. Follow the rover-spec skill instructions exactly. Generate a rover trick script for this description: $prompt" \
     2>&1)" || {
     local escaped

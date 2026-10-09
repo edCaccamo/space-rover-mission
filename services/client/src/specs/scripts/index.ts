@@ -8,35 +8,12 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
-// Static registry of rover scripts for the Free Roam mode dropdown.
-//
-// Bob's authoring workflow:
-//   1. Write the script JSON to specs/scripts/<kebab-case-name>.json
-//   2. Copy the same JSON to services/client/src/specs/scripts/<kebab-case-name>.json
-//   3. Add an import and entry below so the script appears in the dropdown
-
-import moveForward from "./move-forward.json";
-import moveBackward from "./move-backward.json";
-import turnLeft from "./turn-left.json";
-import turnRight from "./turn-right.json";
-import threePointTurn from "./three-point-turn.json";
-import figure8 from "./figure-8.json";
-import donut from "./donut.json";
-import forwardThenCircle from "./forward-then-circle.json";
+// ScriptEntry is the shape of each rover script returned by GET /scripts.
+// Scripts are fetched at runtime from the bob-bridge service — there are no
+// static imports. See hooks/useScripts.ts.
 
 export interface ScriptEntry {
   name: string;
   description: string;
   steps: Array<{ command: string; durationMs: number }>;
 }
-
-export const scripts: ScriptEntry[] = [
-  moveForward as ScriptEntry,
-  moveBackward as ScriptEntry,
-  turnLeft as ScriptEntry,
-  turnRight as ScriptEntry,
-  threePointTurn as ScriptEntry,
-  figure8 as ScriptEntry,
-  donut as ScriptEntry,
-  forwardThenCircle as ScriptEntry,
-];
