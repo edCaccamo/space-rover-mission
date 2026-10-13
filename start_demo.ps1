@@ -32,10 +32,16 @@ docker-compose -f services/docker-compose.yml down
 docker-compose -f services/docker-compose.yml up -d
 
 $VenvPath = "$env:TEMP\space-rover-venv"
-if (-not(Test-Path -Path $VenvPath -PathType Leaf)) {
+if (-not(Test-Path -Path $VenvPath)) {
 
 	echo "Creating venv for space rover gesture control service in $env:TEMP\space-rover-venv"
-	python3.7 -m venv $VenvPath
+	if (Get-Command python3.7 -ErrorAction SilentlyContinue) {
+		python3.7 -m venv $VenvPath
+	} elseif (Get-Command python3 -ErrorAction SilentlyContinue) {
+		python3 -m venv $VenvPath
+	} else {
+		python -m venv $VenvPath
+	}
 }
 
 & "$VenvPath\Scripts\Activate.ps1"

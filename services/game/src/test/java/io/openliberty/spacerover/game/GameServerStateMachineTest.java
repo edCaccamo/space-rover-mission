@@ -9,6 +9,7 @@
  *******************************************************************************/
 package io.openliberty.spacerover.game;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,38 @@ public class GameServerStateMachineTest {
         verifyAndIncrement(machine, Constants.FORWARD);
         verifyAndIncrement(machine, Constants.BACKWARD);
         verifyAndIncrement(machine, Constants.STOP);
+        verifyAndIncrement(machine, Constants.END_GAME);
+        assertTrue(machine.isReadyToConnectGamePieces());
+    }
+
+    @Test
+    void testGestureConnectsBeforeGui() {
+        GameServerStateMachine machine = new GameServerStateMachine();
+        verifyAndIncrement(machine, Constants.CONNECT_GESTURE);
+        assertFalse(machine.isReadyToConnectGamePieces());
+        verifyAndIncrement(machine, Constants.CONNECT_GUI);
+        assertTrue(machine.isReadyToConnectGamePieces());
+    }
+
+    @Test
+    void testGestureConnectsAfterGui() {
+        GameServerStateMachine machine = new GameServerStateMachine();
+        verifyAndIncrement(machine, Constants.CONNECT_GUI);
+        verifyAndIncrement(machine, Constants.CONNECT_GESTURE);
+        assertTrue(machine.isReadyToConnectGamePieces());
+    }
+
+    @Test
+    void testFreeRoamWithoutGesture() {
+        GameServerStateMachine machine = new GameServerStateMachine();
+        verifyAndIncrement(machine, Constants.CONNECT_GUI);
+        assertTrue(machine.isReadyToConnectGamePieces());
+        machine.attachLeaderboard();
+        machine.attachRover();
+        verifyAndIncrement(machine, Constants.ROVER_ACK);
+        machine.attachGameBoard();
+        verifyAndIncrement(machine, Constants.GAMEBOARD_ACK);
+        verifyAndIncrement(machine, Constants.START_GAME);
         verifyAndIncrement(machine, Constants.END_GAME);
         assertTrue(machine.isReadyToConnectGamePieces());
     }

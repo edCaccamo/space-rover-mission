@@ -22,6 +22,10 @@ const PlayPage = () => {
     gameModes,
     gameState,
     startGame,
+    endGame,
+    formattedTime,
+    health,
+    score,
     error,
     battery,
     socket,
@@ -50,6 +54,10 @@ const PlayPage = () => {
           gameMode={gameMode}
           socket={socket}
           gameSocketURL={gameSocketURL}
+          health={health}
+          score={score}
+          formattedTime={formattedTime}
+          endGame={endGame}
         />
       );
     case GameState.GameEnded:

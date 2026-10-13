@@ -24,6 +24,10 @@ const getGameModes = async () => {
 
 const useGameModes = () => {
   const defaultGameModes: GameMode[] = [
+    { id: 1, name: "Classic", description: "Visit all the planets in any order." },
+    { id: 2, name: "Planet Hop", description: "Whack-a-mole with planets." },
+    { id: 3, name: "Guided", description: "Visit planets in specified order." },
+    { id: 4, name: "Sudden Death", description: "Instant death Classic mode." },
     { id: 5, name: "Free Roam", description: "Type plain-English rover instructions and execute them in open space without a physical game board." },
   ];
 

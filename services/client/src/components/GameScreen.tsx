@@ -10,24 +10,49 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import PromptInput from "./PromptInput";
+import HealthBar from "./HealthBar";
+import Stat from "./Stat";
 import { ReactComponent as Combomark } from "assets/openliberty_combomark.svg";
 import useGameModes from "hooks/useGameModes";
 import usePromptControls from "hooks/usePromptControls";
 import useKeyboardControls from "hooks/useKeyboardControls";
 import { GameState } from "hooks/useGame";
 
+const FREE_ROAM_MODE = "5";
+
 type Props = {
   playerName: string;
   gameMode: string;
   socket: WebSocket | null;
   gameSocketURL: string;
+  health: number;
+  score: number;
+  formattedTime: string;
+  endGame: () => void;
 };
 
-const GameScreen = ({ playerName, gameMode, socket, gameSocketURL }: Props) => {
+const GameScreen = ({
+  playerName,
+  gameMode,
+  socket,
+  gameSocketURL,
+  health,
+  score,
+  formattedTime,
+  endGame,
+}: Props) => {
   const navigate = useNavigate();
   const gameModes = useGameModes();
-  const { isExecuting, nearBoundary, executeScript, cancelScript } = usePromptControls(socket, GameState.InGame);
+  const isFreeRoam = gameMode === FREE_ROAM_MODE;
+  // Script execution is a Free Roam feature; modes 1-4 are gesture/keyboard driven.
+  const { isExecuting, nearBoundary, executeScript, cancelScript } =
+    usePromptControls(isFreeRoam ? socket : null, GameState.InGame);
   useKeyboardControls(socket, GameState.InGame, isExecuting);
+
+  const handleEndMission = () => {
+    endGame();
+    navigate("/");
+  };
 
   return (
     <div className="container mx-auto flex flex-col gap-12 justify-center h-full">
@@ -45,17 +70,27 @@ const GameScreen = ({ playerName, gameMode, socket, gameSocketURL }: Props) => {
           </p>
         </div>
       </div>
-      <PromptInput
-        gameSocketURL={gameSocketURL}
-        isExecuting={isExecuting}
-        nearBoundary={nearBoundary}
-        executeScript={executeScript}
-        cancelScript={cancelScript}
-      />
+      {isFreeRoam ? (
+        <PromptInput
+          gameSocketURL={gameSocketURL}
+          isExecuting={isExecuting}
+          nearBoundary={nearBoundary}
+          executeScript={executeScript}
+          cancelScript={cancelScript}
+        />
+      ) : (
+        <>
+          <HealthBar health={health} />
+          <div className="flex flex-row">
+            <Stat title="Score" value={score} />
+            <Stat title="Time" value={formattedTime} />
+          </div>
+        </>
+      )}
       <div className="my-10 mx-auto">
         <button
           className="bg-red-600 hover:bg-red-500 text-3xl px-10 py-5 rounded-lg"
-          onClick={() => navigate("/")}
+          onClick={handleEndMission}
         >
           End mission
         </button>

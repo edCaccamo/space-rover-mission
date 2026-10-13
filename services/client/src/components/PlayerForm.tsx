@@ -66,7 +66,7 @@ const PlayerForm = ({ gameModes, isDisabled, onSubmit }: Props) => {
           </div>
         </div>
         <div className="text-green-light text-center text-base py-3">
-          {gameModes[parseInt(gameMode) - 1].description}
+          {gameModes.find((m) => String(m.id) === gameMode)?.description}
         </div>
       </div>
       <div className="flex flex-row gap-2">

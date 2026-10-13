@@ -30,9 +30,18 @@ public class GameServerStateMachine {
 		GameServerState beforeState = this.currentState;
 		switch (msgID) {
 			case Constants.CONNECT_GUI:
+				// The GUI alone is enough to proceed (standalone Free Roam needs no gesture client).
+				// A gesture client that connected first is already accounted for.
 				this.currentState = GameServerState.GUI_AND_GESTURE_CONNECTED;
 				break;
-
+			case Constants.CONNECT_GESTURE:
+				// The gesture client is optional and may attach before or after the GUI. It only
+				// changes state when it is the first client to connect; otherwise the state is kept.
+				if (this.currentState == GameServerState.SERVER_STARTED
+						|| this.currentState == GameServerState.ERROR_OCCURRED) {
+					this.currentState = GameServerState.GESTURE_CONNECTED;
+				}
+				break;
 			case Constants.ROVER_ACK:
 				this.currentState = GameServerState.ROVER_CONNECTED;
 				break;
@@ -55,6 +64,7 @@ public class GameServerStateMachine {
 		boolean isValid = true;
 		if (msgID.equals(Constants.CONNECT_GUI)) {
 			if (this.currentState != GameServerState.SERVER_STARTED
+					&& this.currentState != GameServerState.GESTURE_CONNECTED
 					&& this.currentState != GameServerState.ERROR_OCCURRED) {
 				isValid = false;
 			}

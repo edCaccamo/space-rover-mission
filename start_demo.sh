@@ -21,15 +21,21 @@ docker-compose -f services/docker-compose.yml down
 docker-compose -f services/docker-compose.yml up -d
 
 PYTHON_VENV_DIR="./venv"
-if [ ! -d ${PYTHON_VENV_DIR} ]
+if [ ! -d "${PYTHON_VENV_DIR}" ]
 then
     echo "Creating venv for space rover gesture control service in ${PYTHON_VENV_DIR}"
-    python3.7 -m venv ${PYTHON_VENV_DIR}
+    if command -v python3.7 >/dev/null 2>&1; then
+        python3.7 -m venv "${PYTHON_VENV_DIR}"
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -m venv "${PYTHON_VENV_DIR}"
+    else
+        python -m venv "${PYTHON_VENV_DIR}"
+    fi
 fi
-source ${PYTHON_VENV_DIR}/bin/activate
+source "${PYTHON_VENV_DIR}/bin/activate"
 pip install -r gestures/openCV_implementation/src/requirements.txt
 
-while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:9070/health)" != "200" ]];
+while [[ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9070/health)" != "200" ]];
 do
     sleep 5
     echo "waiting for game service to come online"
