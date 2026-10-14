@@ -4,15 +4,16 @@
  * Runs Bob Shell directly inside this container to generate rover trick scripts,
  * and serves the script list to the browser at runtime — no docker rebuild needed.
  *
- * GET  /health   → { status: "ok" }
- * GET  /scripts  → ScriptEntry[] (reads all *.json from SCRIPTS_DIR)
- * POST /generate → { name, description, steps: [...] }
+ * GET  /health    → { status: "ok" }
+ * GET  /scripts   → ScriptEntry[]  (reads all *.json from SCRIPTS_DIR)
+ * POST /generate  → { name, description, steps: [...] }
  *   Body: { "prompt": "do a figure 8" }
  *
  * Bob Shell must be installed in the container image (see Dockerfile).
  * BOBSHELL_API_KEY must be set for headless auth.
  * SCRIPTS_DIR must point to the mounted specs/scripts directory.
  */
+
 "use strict";
 
 const express = require("express");
@@ -68,11 +69,6 @@ app.post("/generate", (req, res) => {
   const prompt = ((req.body && req.body.prompt) || "").trim();
   if (!prompt) {
     return res.status(400).json({ error: "prompt is required" });
-  }
-
-  const apiKey = process.env.BOBSHELL_API_KEY;
-  if (!apiKey) {
-    return res.status(503).json({ error: "BOB_API_KEY not configured on the bob-bridge container." });
   }
 
   console.log(`[bob-bridge] Generating script for: "${prompt}"`);
