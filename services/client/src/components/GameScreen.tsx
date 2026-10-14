@@ -11,8 +11,12 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import Stat from "./Stat";
 import HealthBar from "./HealthBar";
+import PromptInput from "./PromptInput";
 import { ReactComponent as Combomark } from "assets/openliberty_combomark.svg";
 import useGameModes from "hooks/useGameModes";
+import usePromptControls from "hooks/usePromptControls";
+import useKeyboardControls from "hooks/useKeyboardControls";
+import { GameState } from "hooks/useGame";
 
 type Props = {
   playerName: string;
@@ -20,11 +24,16 @@ type Props = {
   health: number;
   score: number;
   time: string;
+  socket: WebSocket | null;
+  gameSocketURL: string;
 };
 
-const GameScreen = ({ playerName, gameMode, health, score, time }: Props) => {
+const GameScreen = ({ playerName, gameMode, health, score, time, socket, gameSocketURL }: Props) => {
   const navigate = useNavigate();
   const gameModes = useGameModes();
+  const isFreeRoam = gameMode === "5";
+  const { isExecuting, nearBoundary, executeScript, cancelScript } = usePromptControls(socket, GameState.InGame);
+  useKeyboardControls(socket, GameState.InGame, isExecuting);
 
   return (
     <div className="container mx-auto flex flex-col gap-12 justify-center h-full">
@@ -38,17 +47,31 @@ const GameScreen = ({ playerName, gameMode, health, score, time }: Props) => {
             {playerName}
           </h2>
           <p className="text-orange text-3xl">
-            {gameModes[parseInt(gameMode) - 1]?.name}
+            {gameModes.find((m) => String(m.id) === gameMode)?.name}
           </p>
         </div>
       </div>
-      <div className="mx-auto w-4/5">
-        <HealthBar health={health} />
-      </div>
-      <div className="flex flex-row">
-        <Stat title="Time remaining" value={time} />
-        <Stat title="Total score" value={score} />
-      </div>
+      {isFreeRoam ? (
+        <div className="mx-auto w-4/5">
+          <PromptInput
+            gameSocketURL={gameSocketURL}
+            isExecuting={isExecuting}
+            nearBoundary={nearBoundary}
+            executeScript={executeScript}
+            cancelScript={cancelScript}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="mx-auto w-4/5">
+            <HealthBar health={health} />
+          </div>
+          <div className="flex flex-row">
+            <Stat title="Time remaining" value={time} />
+            <Stat title="Total score" value={score} />
+          </div>
+        </>
+      )}
       <div className="my-10 mx-auto">
         <button
           className="bg-red-600 hover:bg-red-500 text-3xl px-10 py-5 rounded-lg"

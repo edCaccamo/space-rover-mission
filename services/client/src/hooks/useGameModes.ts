@@ -29,6 +29,11 @@ const useGameModes = () => {
       name: "Classic",
       description: "Visit all the planets in any order.",
     },
+    {
+      id: 5,
+      name: "Free Roam",
+      description: "Type plain-English rover instructions and execute them in open space without a physical game board.",
+    },
   ];
 
   const { data: gameModes = defaultGameModes } = useQuery(

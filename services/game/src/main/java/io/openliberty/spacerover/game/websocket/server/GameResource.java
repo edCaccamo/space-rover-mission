@@ -62,9 +62,14 @@ public class GameResource {
 		suddenDeath.setGameModeID(Integer.parseInt(Constants.INIT_GAME_SUDDEN_DEATH));
 		suddenDeath.setGameModeName(Constants.GAME_MODE_NAME_SUDDENDEATH);
 		suddenDeath.setDescription(Constants.GAME_MODE_DESC_SUDDENDEATH);
-
 		supportedGameModes.add(suddenDeath);
-		
+
+		GameMode freeRoam = new GameMode();
+		freeRoam.setGameModeID(Integer.parseInt(Constants.INIT_GAME_FREE_ROAM));
+		freeRoam.setGameModeName(Constants.GAME_MODE_NAME_FREE_ROAM);
+		freeRoam.setDescription(Constants.GAME_MODE_DESC_FREE_ROAM);
+		supportedGameModes.add(freeRoam);
+
 		Jsonb jsonb = JsonbBuilder.create();
 		return Response.status(Response.Status.OK).entity(jsonb.toJson(supportedGameModes)).build();
 

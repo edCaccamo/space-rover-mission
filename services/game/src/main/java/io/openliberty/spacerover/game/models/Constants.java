@@ -49,14 +49,17 @@ public class Constants {
 	public static final String INIT_GAME_HOP = "2";
 	public static final String INIT_GAME_GUIDED = "3";
 	public static final String INIT_GAME_SUDDEN_DEATH = "4";
+	public static final String INIT_GAME_FREE_ROAM = "5";
 	public static final String GAME_MODE_NAME_PLANET_HOP = "Planet Hop";
 	public static final String GAME_MODE_NAME_CLASSIC = "Classic";
 	public static final String GAME_MODE_NAME_GUIDED = "Guided";
 	public static final String GAME_MODE_NAME_SUDDENDEATH = "Sudden Death";
+	public static final String GAME_MODE_NAME_FREE_ROAM = "Free Roam";
 	public static final String GAME_MODE_DESC_CLASSIC = "Visit all the planets in any order.";
 	public static final String GAME_MODE_DESC_GUIDED = "Visit planets in specified order.";
 	public static final String GAME_MODE_DESC_SUDDENDEATH = "Instant death Classic mode.";
 	public static final String GAME_MODE_DESC_PLANET_HOP = "Whack-a-mole with planets.";
+	public static final String GAME_MODE_DESC_FREE_ROAM = "Type plain-English rover instructions and execute them in open space without a physical game board.";
 
 	public static final Set<String> SUN_RFID_IDENTIFIERS = new HashSet<>(
 			List.of("04 37 9A 02 EC 6E 81", "04 3F 9A 02 EC 6E 81", "04 47 9A 02 EC 6E 81", "04 4F 9A 02 EC 6E 81",

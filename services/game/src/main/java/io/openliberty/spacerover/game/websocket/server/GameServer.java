@@ -62,6 +62,7 @@ public class GameServer implements GameEventListener, io.openliberty.spacerover.
 	private long numberOfPlanetHopGamesPlayed = 0;
 	private long numberOfGuidedGamesPlayed = 0;
 	private long numberOfSuddenDeathGamesPlayed = 0;
+	private long numberOfFreeRoamGamesPlayed = 0;
 	private int percentageBatteryLeft = 100;
 	private float batteryVoltage = 0;
 
@@ -166,6 +167,11 @@ public class GameServer implements GameEventListener, io.openliberty.spacerover.
 		} else if (gameMode == Integer.parseInt(Constants.INIT_GAME_SUDDEN_DEATH)) {
 			this.currentGame = new SuddenDeathGame();
 			registerGameEventManager();
+		} else if (gameMode == Integer.parseInt(Constants.INIT_GAME_FREE_ROAM)) {
+			this.currentGame = new Game();
+			registerGameEventManager();
+			this.stateMachine.attachFreeRoamRover();
+			connectRover();
 		}
 		this.currentGame.startGameSession(playerId);
 	}
@@ -222,13 +228,19 @@ public class GameServer implements GameEventListener, io.openliberty.spacerover.
 			this.setErrorStateAndSendError("Game ended unexpectedly");
 		} else {
 			LOGGER.log(Level.INFO, "Ending game from server side. {0}", this.currentGame);
-			GameScore leaderboardEntry = this.currentGame.getGameLeaderboardStat();
-			this.aggregateDamage += this.currentGame.getDamageTaken();
-			this.totalScorePoints += leaderboardEntry.getScore();
-			this.totalGameTimeInSeconds += leaderboardEntry.getTime();
-			this.getLeaderboard().updateLeaderboard(leaderboardEntry);
-			this.incrementGamesPlayed(this.currentGame.getGameMode());
-			this.sendTextToGuiSocket(Constants.END_GAME);
+			if (this.stateMachine.isFreeRoamPath()) {
+				// Free Roam has no scoring or leaderboard
+				this.incrementGamesPlayed(Constants.INIT_GAME_FREE_ROAM);
+				this.sendTextToGuiSocket(Constants.END_GAME);
+			} else {
+				GameScore leaderboardEntry = this.currentGame.getGameLeaderboardStat();
+				this.aggregateDamage += this.currentGame.getDamageTaken();
+				this.totalScorePoints += leaderboardEntry.getScore();
+				this.totalGameTimeInSeconds += leaderboardEntry.getTime();
+				this.getLeaderboard().updateLeaderboard(leaderboardEntry);
+				this.incrementGamesPlayed(this.currentGame.getGameMode());
+				this.sendTextToGuiSocket(Constants.END_GAME);
+			}
 		}
 	}
 
@@ -245,6 +257,9 @@ public class GameServer implements GameEventListener, io.openliberty.spacerover.
 				break;
 			case Constants.INIT_GAME_HOP:
 				this.numberOfPlanetHopGamesPlayed++;
+				break;
+			case Constants.INIT_GAME_FREE_ROAM:
+				this.numberOfFreeRoamGamesPlayed++;
 				break;
 			default:
 				throw new IllegalStateException("Invalid Game mode Played: " + gameMode);
@@ -282,9 +297,14 @@ public class GameServer implements GameEventListener, io.openliberty.spacerover.
 				case Constants.START_GAME:
 					assert (parsedMsg.length == 2);
 					String[] properties = parsedMsg[1].split(Constants.SOCKET_MESSAGE_PAYLOAD_DELIMITER);
-					this.roverClient.sendMessage(properties[1]);
-					this.boardClient.sendMessage(properties[1]);
 					startGame(properties);
+					// notify rover and board (boardClient is null for Free Roam)
+					if (this.roverClient != null) {
+						this.roverClient.sendMessage(properties[1]);
+					}
+					if (this.boardClient != null) {
+						this.boardClient.sendMessage(properties[1]);
+					}
 					break;
 				case Constants.END_GAME:
 					if (parsedMsg.length == 2) {
@@ -358,6 +378,8 @@ public class GameServer implements GameEventListener, io.openliberty.spacerover.
 		} else if (this.stateMachine.isReadyToConnectBoard() && !this.stateMachine.hasErrorOccurred()) {
 			connectBoard();
 		} else if (this.stateMachine.isAllConnected()) {
+			this.sendTextToGuiSocket(Constants.SERVER_READY);
+		} else if (this.stateMachine.isFreeRoamReady()) {
 			this.sendTextToGuiSocket(Constants.SERVER_READY);
 		} else if (this.stateMachine.hasErrorOccurred()) {
 			this.endGameFromServer(true);
@@ -533,6 +555,11 @@ public class GameServer implements GameEventListener, io.openliberty.spacerover.
 	@Gauge(unit = MetricUnits.NONE, name = "numberOfSuddenDeathGamesPlayed", absolute = true, description = "The aggregate amount of sudden death games played.")
 	public long getCountSuddenDeathGamesPlayed() {
 		return this.numberOfSuddenDeathGamesPlayed;
+	}
+
+	@Gauge(unit = MetricUnits.NONE, name = "numberOfFreeRoamGamesPlayed", absolute = true, description = "The aggregate amount of free roam sessions played.")
+	public long getCountFreeRoamGamesPlayed() {
+		return this.numberOfFreeRoamGamesPlayed;
 	}
 
 	@Gauge(unit = MetricUnits.PERCENT, name = "pctBatteryLevel", absolute = true, description = "Space rover battery level percentage.")

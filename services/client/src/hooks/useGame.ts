@@ -202,6 +202,7 @@ const useGame = (gameSocketURL: string, durationInSeconds: number) => {
     endGame,
     error,
     battery,
+    socket: socket.current,
   };
 };
 
