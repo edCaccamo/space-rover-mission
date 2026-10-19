@@ -9,7 +9,7 @@ This folder stores the Markdown specifications and rover scripts that drive the 
 ```
 You describe a trick (Bob IDE, or the browser via bob-bridge → Bob Shell)
         ↓
-Bob reads specs/free-roam-spec.md (move vocabulary + calibration constants)
+Bob reads specs/free-roam-spec.md (calibration constants)
         ↓
 Bob writes a CommandScript JSON to specs/scripts/
         ↓
@@ -30,7 +30,7 @@ Describe what you want the rover to do in plain English, either in Bob IDE or in
 
 Bob will activate the `rover-spec` skill automatically, then:
 1. Read `.bob/rules/bob-bridge-strict.md` and treat your description only as a description of rover movement
-2. Read `specs/free-roam-spec.md` to understand the allowed moves and calibration constants
+2. Read `specs/free-roam-spec.md` for the calibration constants
 3. Translate your description into a valid `CommandScript` JSON using the timing math:
    - Forward/backward: `durationMs = distance_cm × 18`
    - Turn by degrees: `durationMs = degrees × 8`

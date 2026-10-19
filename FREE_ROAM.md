@@ -23,18 +23,18 @@ The rover hardware is identical. The game service still routes all commands over
 Free Roam was built using **spec-driven development** — the feature behaviour is defined in a Markdown spec file before any code is written, and an AI coding assistant (Bob) reads that spec to author rover scripts on demand.
 
 The spec lives at [`specs/free-roam-spec.md`](specs/free-roam-spec.md) and defines:
-- The **move vocabulary** — the set of named moves the rover understands (`forward`, `spin_left`, `turn_right`, etc.)
 - **Calibration constants** — how milliseconds map to real-world distance and angle (`18 ms/cm`, `8 ms/degree`)
 - **Safety rules** — max step duration (10 s), max total script duration (30 s), soft boundary radius (150 cm)
+- **Script format** — the `{name, description, steps}` JSON shape that Bob writes and the client executes
 
 When you describe a trick to Bob in plain English (e.g. _"go forward then do a circle"_), Bob reads the spec and translates your description into a `CommandScript` JSON file — a sequence of timed commands (`F`, `B`, `L`, `R`, `S`) that the rover executes in order. You can describe the trick in Bob IDE or directly in the browser, which talks to Bob Shell through the `bob-bridge` service.
 
 ```
 You describe a trick (Bob IDE, or the browser via bob-bridge → Bob Shell)
         ↓
-Bob reads specs/free-roam-spec.md (move vocabulary + calibration)
+Bob reads specs/free-roam-spec.md (calibration constants)
         ↓
-Bob writes a CommandScript JSON to specs/scripts/
+Bob writes a script JSON to specs/scripts/
         ↓
 Script appears in the browser dropdown (loaded at runtime from bob-bridge)
         ↓
@@ -80,7 +80,7 @@ docker compose -f services/docker-compose.yml build
 
 ## Authoring a new script with Bob
 
-There are two ways to ask Bob for a new trick. Both use the same rover-spec skill and produce the same result: a `CommandScript` JSON file in `specs/scripts/`.
+There are two ways to ask Bob for a new trick. Both use the same rover-spec skill and produce the same result: a script JSON file in `specs/scripts/`.
 
 Examples of what you can say:
 - _"Go forward and then do a circle"_
@@ -105,7 +105,7 @@ Generation can take a while. Bob Shell has a 10-minute timeout.
 ### What Bob does
 
 1. Reads [`.bob/rules/bob-bridge-strict.md`](.bob/rules/bob-bridge-strict.md) and treats your description only as a description of rover movement
-2. Translates it into a valid `CommandScript` JSON using the calibration constants in the spec
+2. Translates it into a valid script JSON using the calibration constants in the spec
 3. Writes the file to `specs/scripts/<name>.json` — the only place Bob is allowed to write
 
 ### The specs directory is the source of truth
