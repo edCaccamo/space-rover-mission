@@ -28,4 +28,7 @@
 	<cors domain="/game"
 		allowedOrigins="*"
 		allowedMethods="GET, POST" />
+	<cors domain="/api"
+		allowedOrigins="*"
+		allowedMethods="GET, POST" />
 </server>
