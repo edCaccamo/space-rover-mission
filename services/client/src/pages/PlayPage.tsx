@@ -8,7 +8,7 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 import React from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 import PlayerForm from "components/PlayerForm";
 import GameScreen from "components/GameScreen";
 import GameStateMessage from "components/GameStateMessage";
@@ -28,6 +28,7 @@ const PlayPage = () => {
     startGame,
     error,
     battery,
+    socket,
   } = useGame(gameSocketURL, gameDurationSeconds);
 
   switch (gameState) {
@@ -59,9 +60,24 @@ const PlayPage = () => {
           health={health}
           score={score}
           time={formattedTime}
+          socket={socket}
+          gameSocketURL={gameSocketURL}
         />
       );
     case GameState.GameEnded:
+      if (gameMode === "5") {
+        return (
+          <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
+            <p className="text-orange text-4xl">Mission complete.</p>
+            <Link
+              className="bg-gray-200 hover:bg-gray-300 text px-5 py-4 rounded-lg text-xl"
+              to="/"
+            >
+              Return home
+            </Link>
+          </div>
+        );
+      }
       return (
         <Navigate
           to={`/leaderboard?player=${encodeURIComponent(playerName)}&gameMode=${gameMode}`}
