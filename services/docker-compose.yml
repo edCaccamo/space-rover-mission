@@ -53,3 +53,19 @@ services:
                 - LEADERBOARD_URL=http://localhost:9190/mongo/leaderboard
         ports:
             - "3000:80"
+    bob-bridge:
+        build: ./bob-bridge
+        ports:
+            - "127.0.0.1:4000:4000"
+        volumes:
+            # Mount the full repo root read-only so Bob loads .bob/rules/ and the rover-spec skill
+            - ../:/workspace:ro
+            # Overlay specs/scripts/ read-write — the only writable path
+            - ../specs/scripts:/workspace/specs/scripts:rw
+        env_file:
+            - .env
+        environment:
+            - BOB_BRIDGE_PORT=4000
+            - SCRIPTS_DIR=/workspace/specs/scripts
+            - BOBSHELL_API_KEY=${BOB_API_KEY}
+        restart: unless-stopped
