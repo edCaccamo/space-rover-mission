@@ -45,6 +45,8 @@ enum Event {
 
 const MSG_DELMITER = "|";
 
+export const FREE_ROAM_MODE = "5";
+
 const formatMessage = (event: Event, data: string = "") => {
   return `${event}${MSG_DELMITER}${data}`;
 };
@@ -78,8 +80,11 @@ const useGame = (gameSocketURL: string, durationInSeconds: number) => {
     stopTimer,
   } = useTimer(durationInSeconds);
 
-  useKeyboardColours(socket.current, gameState);
-  useKeyboardControls(socket.current, gameState);
+  // Free Roam has no board and drives the rover with scripts; its screen registers its own
+  // arrow-key handler, so these game handlers are switched off for it.
+  const gameKeysSocket = gameMode === FREE_ROAM_MODE ? null : socket.current;
+  useKeyboardColours(gameKeysSocket, gameState);
+  useKeyboardControls(gameKeysSocket, gameState);
 
   const gameModes = useGameModes();
 
@@ -175,7 +180,10 @@ const useGame = (gameSocketURL: string, durationInSeconds: number) => {
       setGameMode(gameMode);
       sendMessage(Event.Start, [encodeURIComponent(playerName), gameMode].join(","));
       setGameState(GameState.InGame);
-      startTimer();
+      // Free Roam has no time limit, so the countdown (and its auto-end at 0) never runs
+      if (gameMode !== FREE_ROAM_MODE) {
+        startTimer();
+      }
     }
   }
 

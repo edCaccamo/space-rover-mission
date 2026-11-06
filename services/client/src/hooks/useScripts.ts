@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 import { useState, useEffect, useCallback } from "react";
+import { BOB_BRIDGE_BASE } from "./useBridgeStatus";
 
 interface ScriptEntry {
   name: string;
@@ -15,7 +16,7 @@ interface ScriptEntry {
   steps: Array<{ command: string; durationMs: number }>;
 }
 
-const BOB_BRIDGE_SCRIPTS_URL = "http://localhost:4000/scripts";
+const BOB_BRIDGE_SCRIPTS_URL = `${BOB_BRIDGE_BASE}/scripts`;
 
 const useScripts = () => {
   const [scripts, setScripts] = useState<ScriptEntry[]>([]);

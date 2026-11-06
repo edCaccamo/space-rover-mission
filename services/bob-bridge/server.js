@@ -31,8 +31,12 @@ const SCRIPTS_DIR = process.env.SCRIPTS_DIR || "/workspace/specs/scripts";
 // Bob Shell must be run from the workspace root so it loads .bob/rules/ and skills
 const WORKSPACE = process.env.WORKSPACE || "/workspace";
 
+const hasApiKey = () => Boolean((process.env.BOBSHELL_API_KEY || "").trim());
+
 // ─── Health check ─────────────────────────────────────────────────────────────
-app.get("/health", (_req, res) => res.json({ status: "ok" }));
+// keyConfigured tells the browser whether Generate can work. It cannot tell
+// whether the key is still valid — only a real Bob call can.
+app.get("/health", (_req, res) => res.json({ status: "ok", keyConfigured: hasApiKey() }));
 
 // ─── GET /scripts ─────────────────────────────────────────────────────────────
 // Reads all *.json files from SCRIPTS_DIR and returns them as an array.
@@ -70,6 +74,12 @@ app.post("/generate", (req, res) => {
   if (!prompt) {
     return res.status(400).json({ error: "prompt is required" });
   }
+  if (!hasApiKey()) {
+    return res.status(503).json({
+      error:
+        "Bob API key is missing. Set BOB_API_KEY in services/.env and restart the bob-bridge container.",
+    });
+  }
 
   console.log(`[bob-bridge] Generating script for: "${prompt}"`);
 
@@ -95,9 +105,20 @@ app.post("/generate", (req, res) => {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  // Stream Bob output to container logs for visibility
-  bobProc.stdout.on("data", (d) => process.stdout.write(`[bob] ${d}`));
-  bobProc.stderr.on("data", (d) => process.stderr.write(`[bob] ${d}`));
+  // Stream Bob output to container logs for visibility, and keep the tail so a
+  // failure can be reported to the browser.
+  let outputTail = "";
+  const remember = (d) => {
+    outputTail = (outputTail + d).slice(-500);
+  };
+  bobProc.stdout.on("data", (d) => {
+    process.stdout.write(`[bob] ${d}`);
+    remember(d);
+  });
+  bobProc.stderr.on("data", (d) => {
+    process.stderr.write(`[bob] ${d}`);
+    remember(d);
+  });
 
   // Bob Shell may take several minutes for script generation
   const timeout = setTimeout(() => {
@@ -114,7 +135,11 @@ app.post("/generate", (req, res) => {
     if (code !== 0) {
       console.error(`[bob-bridge] Bob Shell exited with code ${code}`);
       if (!res.headersSent) {
-        res.status(500).json({ error: `Bob Shell exited with code ${code}` });
+        res.status(500).json({
+          error:
+            `Bob Shell exited with code ${code}. The Bob API key may be missing, expired or revoked. ` +
+            `Last output: ${outputTail.trim() || "(none)"}`,
+        });
       }
       return;
     }

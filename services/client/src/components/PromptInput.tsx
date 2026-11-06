@@ -10,6 +10,7 @@
 import React, { useState, useEffect } from "react";
 import { CommandScript } from "hooks/usePromptControls";
 import useScripts from "hooks/useScripts";
+import { BOB_BRIDGE_BASE } from "hooks/useBridgeStatus";
 
 // UI label strings from specs/free-roam-spec.md
 const EXECUTE_BUTTON_LABEL = "Execute";
@@ -19,16 +20,20 @@ const STATUS_COMPLETED = "Rover script completed.";
 const STATUS_CANCELLED = "Rover script cancelled.";
 const WARNING_BOUNDARY = "Warning: this script may take the rover near the boundary.";
 
-// bob-bridge sidecar — exposed on localhost:4000 (see services/docker-compose.yml)
-const BOB_BRIDGE_BASE = "http://localhost:4000";
+// bob-bridge sidecar — exposed on localhost:4000 (see services/docker-compose.freeroam.yml)
 const BOB_BRIDGE_URL = `${BOB_BRIDGE_BASE}/generate`;
+const BOB_KEY_MISSING_MESSAGE =
+  "Generating tricks is unavailable: the Bob API key is missing. " +
+  "Set BOB_API_KEY in services/.env and restart the bob-bridge container. " +
+  "Existing tricks still work.";
 
 type Props = {
-  gameSocketURL: string;
   isExecuting: boolean;
   nearBoundary: boolean;
   executeScript: (script: CommandScript) => void;
   cancelScript: () => void;
+  // false when bob-bridge is running but has no BOB_API_KEY
+  bobKeyConfigured: boolean;
 };
 
 const PromptInput = ({
@@ -36,6 +41,7 @@ const PromptInput = ({
   nearBoundary,
   executeScript,
   cancelScript,
+  bobKeyConfigured,
 }: Props) => {
   const { scripts, loading: scriptsLoading, error: scriptsError, refetch: refetchScripts } = useScripts();
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -73,7 +79,7 @@ const PromptInput = ({
 
   // ── Bob generate handlers ────────────────────────────────────────────────────
   const handleBobGenerate = async () => {
-    if (!bobPrompt.trim() || bobGenerating) return;
+    if (!bobPrompt.trim() || bobGenerating || !bobKeyConfigured) return;
     setBobGenerating(true);
     setBobError(null);
     setGeneratedScript(null);
@@ -91,7 +97,7 @@ const PromptInput = ({
         refetchScripts();
       }
     } catch {
-      setBobError("Could not reach the Bob bridge. Is the bob-bridge container running?");
+      setBobError("Could not reach the bob-bridge container. Is it running?");
     } finally {
       setBobGenerating(false);
     }
@@ -179,13 +185,16 @@ const PromptInput = ({
               Describe any trick in plain English. Bob will generate the command
               script and send it straight to the rover.
             </p>
+            {!bobKeyConfigured && (
+              <p className="text-red-400 text-xs">{BOB_KEY_MISSING_MESSAGE}</p>
+            )}
             <textarea
               className="bg-gray-800 text-gray-100 rounded-lg p-3 w-full text-sm resize-none"
               rows={3}
               placeholder='e.g. "spin right twice then reverse 50 cm"'
               value={bobPrompt}
               onChange={(e) => setBobPrompt(e.target.value)}
-              disabled={bobGenerating || isExecuting}
+              disabled={bobGenerating || isExecuting || !bobKeyConfigured}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   handleBobGenerate();
@@ -196,7 +205,7 @@ const PromptInput = ({
               <button
                 className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg text-sm"
                 onClick={handleBobGenerate}
-                disabled={!bobPrompt.trim() || bobGenerating || isExecuting}
+                disabled={!bobPrompt.trim() || bobGenerating || isExecuting || !bobKeyConfigured}
               >
                 {bobGenerating ? "Generating…" : "Generate"}
               </button>

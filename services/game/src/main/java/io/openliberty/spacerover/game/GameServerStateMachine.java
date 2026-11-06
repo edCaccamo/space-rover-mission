@@ -18,12 +18,11 @@ import java.util.logging.Logger;
 public class GameServerStateMachine {
 	private static final Logger LOGGER = Logger.getLogger(GameServerStateMachine.class.getName());
 	GameServerState currentState;
-	private boolean isFreeRoamPath = false;
 
 	public GameServerStateMachine() {
 		this(GameServerState.SERVER_STARTED);
 	}
-
+	
 	public GameServerStateMachine(GameServerState startingPoint) {
 		this.currentState = startingPoint;
 	}
@@ -49,9 +48,7 @@ public class GameServerStateMachine {
 				break;
 
 			case Constants.ROVER_ACK:
-				this.currentState = this.isFreeRoamPath
-						? GameServerState.FREE_ROAM_READY
-						: GameServerState.ROVER_CONNECTED;
+				this.currentState = GameServerState.ROVER_CONNECTED;
 				break;
 			case Constants.GAMEBOARD_ACK:
 				this.currentState = GameServerState.ALL_CONNECTED;
@@ -93,10 +90,7 @@ public class GameServerStateMachine {
 			}
 
 		} else if (msgID.equals(Constants.START_GAME)) {
-			if (this.currentState != GameServerState.ALL_CONNECTED
-					&& this.currentState != GameServerState.GAME_ENDED
-					&& this.currentState != GameServerState.FREE_ROAM_READY
-					&& this.currentState != GameServerState.GUI_CONNECTED) {
+			if (this.currentState != GameServerState.ALL_CONNECTED && this.currentState != GameServerState.GAME_ENDED) {
 				isValid = false;
 			}
 		} else if (msgID.equals(Constants.END_GAME)) {
@@ -120,15 +114,6 @@ public class GameServerStateMachine {
 		}
 		this.currentState = GameServerState.ROVER_CONNECT_TEST;
 		logStateChange(GameServerState.LEADERBOARD_CONNECTED, this.currentState);
-	}
-
-	public void attachFreeRoamRover() {
-		if (this.currentState != GameServerState.GUI_CONNECTED) {
-			throw new RuntimeException("attachFreeRoamRover received during invalid server state " + this.currentState);
-		}
-		this.isFreeRoamPath = true;
-		this.currentState = GameServerState.ROVER_CONNECT_TEST;
-		logStateChange(GameServerState.GUI_CONNECTED, this.currentState);
 	}
 
 	public void attachGameBoard() {
@@ -174,14 +159,6 @@ public class GameServerStateMachine {
 
 	public boolean isAllConnected() {
 		return this.currentState == GameServerState.ALL_CONNECTED;
-	}
-
-	public boolean isFreeRoamReady() {
-		return this.currentState == GameServerState.FREE_ROAM_READY;
-	}
-
-	public boolean isFreeRoamPath() {
-		return this.isFreeRoamPath;
 	}
 
 	public boolean isReadyToConnectBoard() {

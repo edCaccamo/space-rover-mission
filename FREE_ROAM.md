@@ -14,7 +14,9 @@ Free Roam is a new game mode added to the Space Rover Mission that lets you driv
 | **Game modes** | Classic, Planet Hop, Guided, Sudden Death | Free Roam (mode 5) |
 | **Scoring** | Health and score tracked against the board | No scoring — pure movement execution |
 
-The rover hardware is identical. The game service still routes all commands over WebSocket. The difference is that the game board is replaced by a mock service that handles only the startup handshake, and all movement decisions come from a pre-authored script rather than real-time gesture input.
+The rover hardware is identical. The game service still routes all commands over WebSocket. The difference is that the game board is replaced by a mock service (`mockboard`) that handles only the startup handshake, and all movement decisions come from a pre-authored script rather than real-time gesture input. Free Roam has no time limit.
+
+The standard game modes are unchanged: `services/docker-compose.yml` is the same as upstream and expects the real game board.
 
 ---
 
@@ -68,12 +70,15 @@ cp services/.env.example services/.env
 
 Edit `services/.env` and set `BOB_API_KEY`. The file is gitignored — never commit your key.
 
+`services/.env` is **optional**. Without it the stack still starts, and Free Roam can run every existing script. Only **Generate a new trick with Bob** is unavailable, and the browser tells you the key is missing.
+
 ### 4. Build the Docker images (requires internet)
 
 Do this once on IBM Wi-Fi or any internet connection. You only need to repeat this if the service code changes (not when `specs/` changes).
 
 ```bash
-docker compose -f services/docker-compose.yml build
+cd services
+podman-compose -f docker-compose.yml -f docker-compose.freeroam.yml build
 ```
 
 ---
@@ -133,9 +138,14 @@ The rover is only reachable on the OL_DEMO network. To also keep internet access
 
 #### 2. Start the stack
 
+Free Roam uses an extra compose file, `services/docker-compose.freeroam.yml`, layered on top of the standard one. It adds `mockboard` (so no game board is needed) and `bob-bridge` (which lists tricks and generates new ones):
+
 ```bash
-docker compose -f services/docker-compose.yml up -d
+cd services
+podman-compose -f docker-compose.yml -f docker-compose.freeroam.yml up -d --build
 ```
+
+For the standard game with the real board, use the plain file as before: `podman-compose up -d`. Free Roam is blocked on the start screen in that case, because `bob-bridge` is not running and there are no tricks to list.
 
 #### 3. Open the browser
 
@@ -162,7 +172,8 @@ The in-game screen shows:
 ## Stopping the stack
 
 ```bash
-docker compose -f services/docker-compose.yml down
+cd services
+podman-compose -f docker-compose.yml -f docker-compose.freeroam.yml down
 ```
 
 ---
@@ -171,25 +182,30 @@ docker compose -f services/docker-compose.yml down
 
 ### Mock mode (no physical rover)
 
-If you don't have hardware available, you can run the full stack with a simulated rover to verify the UI and script execution end-to-end:
+If you don't have a rover available, you can verify the UI and script execution end-to-end with the simulated rover. `docker-compose-test.yml` (unchanged from upstream) contains `mockrover` and `mockboard`; layer the Free Roam file on top to add `bob-bridge`:
+
+1. Point the game service at the mocks: in `services/game/src/main/webapp/META-INF/microprofile-config.properties`, comment out the *Physical Hardware* block and uncomment the *Test* block (see [`services/mock/README.md`](services/mock/README.md)). Revert this before using real hardware.
+2. Start the stack:
 
 ```bash
-docker compose -f services/docker-compose-test.yml up --build
+cd services
+podman-compose -f docker-compose-test.yml -f docker-compose.freeroam.yml up -d --build
 ```
 
-This swaps in a `mockrover` container that logs every command it receives instead of driving real hardware. The `bob-bridge` service is included, so the script dropdown and the Generate panel work here too (they need `services/.env`, see [Initial setup](#initial-setup)). Watch commands arrive in real time:
+The mock rover logs every command it receives instead of driving hardware. Watch them arrive:
 
 ```bash
-docker logs -f services-mockrover-1
+podman logs -f services_mockrover_1
 ```
 
 For a Forward Then Circle script you would see:
 ```
-Message Received: F
-Message Received: S
-Message Received: L
-Message Received: S
+Message Recieved: F
+Message Recieved: S
+Message Recieved: L
+Message Recieved: S
 ```
+(The mock's log text really is spelled "Recieved".)
 
 Use mock mode to confirm your script logic is correct before running on the physical rover.
 
@@ -205,4 +221,9 @@ Use mock mode to confirm your script logic is correct before running on the phys
 
   **Fix: use two connections at once.** Connect your Mac to OL_DEMO over **Ethernet**, and connect **Wi-Fi** to a public network. The rover traffic goes over Ethernet and Bob's traffic goes over Wi-Fi, so you can generate tricks and run them without switching networks.
 
-- **The game service will hang if started without a route to the rover.** The game service connects to the rover at `192.168.0.115` on startup. If your Mac has no connection to OL_DEMO when `docker compose up` runs, the service will wait indefinitely for the rover connection. Connect to OL_DEMO first.
+- **The game service will hang if started without a route to the rover.** The game service connects to the rover at `192.168.0.115` on startup. If your Mac has no connection to OL_DEMO when `podman-compose up` runs, the service will wait indefinitely for the rover connection. Connect to OL_DEMO first.
+
+- **The rover is started in Classic mode, not mode 5.** The rover firmware (NodeMCU) only recognises game modes `1`-`4` as "game started"; until it does, it ignores movement commands and its lights keep blinking. The game service therefore sends `1` to the rover when you pick Free Roam (see the `START_GAME` case in `GameServer.java`). The board and the web app still see mode `5`. To have the rover receive a real `5`, reflash it with `devices/space-rover/src/SpaceRover_NodeMCU.ino`, which already accepts `5`, then remove the mapping in `GameServer.java`.
+
+- **MongoDB is pinned to 4.4.** The leaderboard uses the old `mongo-java-driver` 3.12, which cannot connect to the current `mongo:latest` (9.x): the leaderboard stalls with `Command buildInfo requires authentication` and the game service never reports ready. `services/docker-compose.yml` therefore uses `mongo:4.4`. If you switch Mongo versions, clear the old data first: `podman-compose down`, then `podman unshare rm -rf ~/mongo/data/*`.
+

@@ -11,16 +11,20 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { ReactComponent as Combomark } from "assets/openliberty_combomark.svg";
 import { GameMode } from "hooks/useGameModes";
+import { FREE_ROAM_MODE } from "hooks/useGame";
 
 type Props = {
   gameModes: GameMode[];
   isDisabled: boolean;
   onSubmit: (playerName: string, gameMode: string) => void;
+  // Why Free Roam can't be started right now (e.g. bob-bridge not running); null when it can.
+  freeRoamBlockedReason?: string | null;
 };
 
-const PlayerForm = ({ gameModes, isDisabled, onSubmit }: Props) => {
+const PlayerForm = ({ gameModes, isDisabled, onSubmit, freeRoamBlockedReason = null }: Props) => {
   const [playerName, setPlayerName] = useState("");
   const [gameMode, setGameMode] = useState("1");
+  const blockedReason = gameMode === FREE_ROAM_MODE ? freeRoamBlockedReason : null;
 
   return (
     <form
@@ -68,6 +72,9 @@ const PlayerForm = ({ gameModes, isDisabled, onSubmit }: Props) => {
         <div className="text-green-light text-center text-base py-3">
           {gameModes[parseInt(gameMode) - 1].description}
         </div>
+        {blockedReason && (
+          <div className="text-red-400 text-center text-base pb-3">{blockedReason}</div>
+        )}
       </div>
       <div className="flex flex-row gap-2">
         <Link
@@ -79,7 +86,7 @@ const PlayerForm = ({ gameModes, isDisabled, onSubmit }: Props) => {
         <input
           className="w-2/3 hover:cursor-pointer bg-green hover:bg-green-light disabled:bg-gray-500 disabled:cursor-not-allowed px-5 py-5 rounded-lg"
           type="submit"
-          disabled={isDisabled || playerName === ""}
+          disabled={isDisabled || playerName === "" || blockedReason !== null}
           value="Begin mission"
         />
       </div>

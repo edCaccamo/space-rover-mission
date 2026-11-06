@@ -47,6 +47,12 @@ const useKeyboardControls = (websocket: WebSocket | null, gameState: GameState, 
         return;
       }
 
+      // Arrow keys in the script dropdown or typing in the Bob prompt must not drive the rover
+      const target = event.target as HTMLElement | null;
+      if (target && ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName)) {
+        return;
+      }
+
       // only allow 1 key pressed at a time
       if (leftActive || rightActive || upActive || downActive) {
         websocket.send(lastCommand);

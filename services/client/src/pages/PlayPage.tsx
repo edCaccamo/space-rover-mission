@@ -8,13 +8,21 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 import React from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import PlayerForm from "components/PlayerForm";
 import GameScreen from "components/GameScreen";
+import FreeRoamScreen from "components/FreeRoamScreen";
 import GameStateMessage from "components/GameStateMessage";
 import BatteryStatus from "components/BatteryStatus";
-import useGame, { GameState } from "hooks/useGame";
+import useGame, { GameState, FREE_ROAM_MODE } from "hooks/useGame";
+import useBridgeStatus from "hooks/useBridgeStatus";
 import { gameSocketURL, gameDurationSeconds } from "lib/config";
+
+// Free Roam needs bob-bridge: it is where the list of rover scripts comes from.
+const BRIDGE_DOWN_MESSAGE =
+  "Free Roam is unavailable: the bob-bridge container is not running, so there are no tricks to run. " +
+  "Start it with: podman-compose -f docker-compose.yml -f docker-compose.freeroam.yml up -d";
+const BRIDGE_CHECKING_MESSAGE = "Checking whether Free Roam is available...";
 
 const PlayPage = () => {
   const {
@@ -30,6 +38,14 @@ const PlayPage = () => {
     battery,
     socket,
   } = useGame(gameSocketURL, gameDurationSeconds);
+  const bridge = useBridgeStatus();
+
+  let freeRoamBlockedReason: string | null = null;
+  if (bridge.state === "down") {
+    freeRoamBlockedReason = BRIDGE_DOWN_MESSAGE;
+  } else if (bridge.state === "checking") {
+    freeRoamBlockedReason = BRIDGE_CHECKING_MESSAGE;
+  }
 
   switch (gameState) {
     case GameState.Connecting:
@@ -42,6 +58,7 @@ const PlayPage = () => {
             gameModes={gameModes}
             isDisabled={gameState !== GameState.NotStarted}
             onSubmit={startGame}
+            freeRoamBlockedReason={freeRoamBlockedReason}
           />
           <GameStateMessage
             state={gameState}
@@ -53,6 +70,16 @@ const PlayPage = () => {
         </div>
       );
     case GameState.InGame:
+      if (gameMode === FREE_ROAM_MODE) {
+        return (
+          <FreeRoamScreen
+            playerName={playerName}
+            gameMode={gameMode}
+            socket={socket}
+            bobKeyConfigured={bridge.state === "up" && bridge.keyConfigured}
+          />
+        );
+      }
       return (
         <GameScreen
           playerName={playerName}
@@ -60,24 +87,9 @@ const PlayPage = () => {
           health={health}
           score={score}
           time={formattedTime}
-          socket={socket}
-          gameSocketURL={gameSocketURL}
         />
       );
     case GameState.GameEnded:
-      if (gameMode === "5") {
-        return (
-          <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
-            <p className="text-orange text-4xl">Mission complete.</p>
-            <Link
-              className="bg-gray-200 hover:bg-gray-300 text px-5 py-4 rounded-lg text-xl"
-              to="/"
-            >
-              Return home
-            </Link>
-          </div>
-        );
-      }
       return (
         <Navigate
           to={`/leaderboard?player=${encodeURIComponent(playerName)}&gameMode=${gameMode}`}

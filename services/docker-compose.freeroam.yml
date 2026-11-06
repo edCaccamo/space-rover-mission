@@ -1,0 +1,36 @@
+# Free Roam overlay — use together with docker-compose.yml:
+#
+#   podman-compose -f docker-compose.yml -f docker-compose.freeroam.yml up -d --build
+#
+# Adds two things on top of the standard stack:
+#   mockboard  - stands in for the physical game board so the game service can
+#                finish its startup handshake without one.
+#   bob-bridge - lists the scripts in specs/scripts/ and lets the browser ask
+#                Bob to generate new ones.
+#
+# services/.env is OPTIONAL. Without it (or without BOB_API_KEY in it) the stack
+# still starts; only "Generate with Bob" is unavailable and says why.
+services:
+    gameservice:
+        environment:
+            # Overrides io.openliberty.gameboard.ip from microprofile-config.properties
+            - io_openliberty_gameboard_ip=mockboard
+    mockboard:
+        build: ./mock/board
+        ports:
+            - "5046:5045"
+    bob-bridge:
+        build: ./bob-bridge
+        ports:
+            - "127.0.0.1:4000:4000"
+        volumes:
+            # Mount the full repo root read-only so Bob loads .bob/rules/ and the rover-spec skill
+            - ../:/workspace:ro
+            # Overlay specs/scripts/ read-write — the only writable path
+            - ../specs/scripts:/workspace/specs/scripts:rw
+        environment:
+            - BOB_BRIDGE_PORT=4000
+            - SCRIPTS_DIR=/workspace/specs/scripts
+            # Read from services/.env or the shell if present; empty otherwise
+            - BOBSHELL_API_KEY=${BOB_API_KEY:-}
+        restart: unless-stopped
